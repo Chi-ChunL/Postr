@@ -8,9 +8,8 @@ from textual.widgets import Header, Footer, ListView, ListItem, Label, Markdown,
 
 POSTS_DIR = Path("posts")
 
-
-
-class NewPostScreen(ModalScreen):
+#Post box
+class NewPostScreen(ModalScreen[str | None]):
     def compose(self) -> ComposeResult:
         with Center():
             with Middle():
@@ -24,16 +23,15 @@ class NewPostScreen(ModalScreen):
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         title = event.value.strip()
-        if title:
-            self.dismiss(title)
-        else:
+        if title == "":
             self.dismiss(None)
+            return
+        self.dismiss(title)
 
     def key_escape(self) -> None:
         self.dismiss(None)
 
-
-
+#Main
 class PostrApp(App):
     CSS_PATH = "postr.tcss"
     BINDINGS = [
@@ -43,22 +41,29 @@ class PostrApp(App):
         Binding("n", "new_post", "New Post"),
     ]
 
-
     def __init__(self):
         super().__init__()
         self.onceEscape = False
 
-    # Some random UI layout
+    #UI Layout
     def compose(self) -> ComposeResult:
-        yield Header()
+        yield Header(show_clock=True)
 
-        with Horizontal():
+        with Horizontal(id="mainLayout"):
             with Vertical(id="sidebar"):
-                yield Label("Posts", classes="sidebarTitle")
+                yield Label("POSTS", classes="sidebarTitle")
+                yield Label("Drafts and saved markdown files", classes="sidebarSubTitle")
                 yield ListView(id="postList")
-            yield Markdown("# This is Postr\n\nPlease select a post from the left.", id="viewer")
+
+            with Vertical(id="contentPane"):
+                yield Label("PREVIEW", classes="viewerTitle")
+                yield Markdown(
+                    "# Welcome to Postr\n\nSelect a post from the left, or press **N** to create one.",
+                    id="viewer",
+                )
+
         yield Footer()
-        
+
 
 
     def onMount(self) -> None:
@@ -70,7 +75,7 @@ class PostrApp(App):
         self.onMount()
 
 
-    # Load posts
+
     def loadPosts(self) -> None:
         post_list = self.query_one("#postList", ListView)
         post_list.clear()
@@ -100,11 +105,15 @@ class PostrApp(App):
         self.onViewPost(event)
 
     def makeSlug(self, title: str) -> str:
-        safe = title.lower().replace(" ", "-")
+        safe = title.lower().strip().replace(" ", "-")
         safe = "".join(char for char in safe if char.isalnum() or char == "-")
         return safe or "untitled"
 
     def createPost(self, title: str) -> None:
+        title = title.strip()
+        if title == "":
+            return
+
         POSTS_DIR.mkdir(exist_ok=True)
 
         slug = self.makeSlug(title)
@@ -132,7 +141,7 @@ Write your post content here...
 
     def newPost(self) -> None:
         def handleResult(title: str | None) -> None:
-            if title:
+            if isinstance(title, str) and title.strip():
                 self.createPost(title)
 
         self.push_screen(NewPostScreen(), handleResult)
@@ -167,7 +176,7 @@ Write your post content here...
 
 
 
-# Run the thing
+
 if __name__ == "__main__":
     app = PostrApp()
     app.run()

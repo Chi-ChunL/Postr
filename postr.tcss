@@ -1,22 +1,54 @@
 Screen {
     layout: vertical;
+    background: $surface;
 }
 
-Horizontal {
+Header {
+    dock: top;
+}
+
+Footer {
+    dock: bottom;
+}
+
+#mainLayout {
     height: 1fr;
+    padding: 1 2;
+    grid-gutter: 2;
 }
 
 #sidebar {
-    width: 30%;
+    width: 32%;
+    height: 1fr;
     border: round $primary;
-    padding: 1;
+    background: $panel;
+    padding: 1 1 0 1;
 }
 
+#contentPane {
+    width: 68%;
+    height: 1fr;
+    border: round $accent;
+    background: $panel;
+    padding: 1 2;
+}
 
 .sidebarTitle {
     text-style: bold;
     margin-bottom: 1;
 }
+
+.sidebarSubTitle {
+    color: $text-muted;
+    margin-bottom: 1;
+}
+
+.viewerTitle {
+    text-style: bold;
+    color: $accent;
+    margin-bottom: 1;
+}
+
 
 #postList {
     height: 1fr;
@@ -44,6 +76,10 @@ Horizontal {
     margin-bottom: 1;
 }
 
+.popupSubTitle {
+    color: $text-muted;
+    margin-bottom: 1;
+}
 
 .popupHelp {
     margin-top: 1;
