@@ -1,0 +1,51 @@
+Screen {
+    layout: vertical;
+}
+
+Horizontal {
+    height: 1fr;
+}
+
+#sidebar {
+    width: 30%;
+    border: round $primary;
+    padding: 1;
+}
+
+
+.sidebarTitle {
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#postList {
+    height: 1fr;
+}
+
+#viewer {
+    width: 70%;
+    border: round $accent;
+    padding: 1 2;
+}
+
+
+
+#newPostBox {
+    width: 60;
+    height: auto;
+    border: round $primary;
+    background: $surface;
+    padding: 1 2;
+}
+
+
+.popupTitle {
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+
+.popupHelp {
+    margin-top: 1;
+    color: $text-muted;
+}
