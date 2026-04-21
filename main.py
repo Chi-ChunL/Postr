@@ -37,6 +37,7 @@ class PostrApp(App):
     BINDINGS = [
         Binding("escape", "escape_quit", "Back / Quit"),
         Binding("r", "reload_posts", "Reload Posts"),
+        Binding("d", "delete_post", "Delete Post"),
         Binding("ctrl+q", "noop", show=False),
         Binding("n", "new_post", "New Post"),
     ]
@@ -44,6 +45,7 @@ class PostrApp(App):
     def __init__(self):
         super().__init__()
         self.onceEscape = False
+        self.currentPostPath = None
 
     #UI Layout
     def compose(self) -> ComposeResult:
@@ -97,6 +99,7 @@ class PostrApp(App):
 
 
         path = item.postPath
+        self.currentPostPath = path
         content = path.read_text(encoding="utf-8")
         viewer = self.query_one("#viewer", Markdown)
         viewer.update(content)
@@ -139,6 +142,28 @@ Write your post content here...
         self.loadPosts()
         self.notify(f"Post '{title}' is created!", timeout=3)
 
+    def deletePost(self) -> None:
+        if self.currentPostPath is None:
+            self.notify("No post selected to be deleted", timeout=2)
+            self.loadPosts()
+            return
+        if not self.currentPostPath.exists():
+            self.notify("Selected post file no longer exists", timeout=2)
+            self.currentPostPath = None
+            self.loadPosts()
+            return
+
+        deletedName = self.currentPostPath.stem
+        self.currentPostPath.unlink()
+        self.currentPostPath = None
+
+        self.loadPosts()
+
+        viewer = self.query_one("#viewer", Markdown)
+        viewer.update("# Welcome to Postr\n\nPlease either select a post from the left, or press **N** to create one.")
+
+        self.notify(f"Post '{deletedName}' is deleted!", timeout=3)
+
     def newPost(self) -> None:
         def handleResult(title: str | None) -> None:
             if isinstance(title, str) and title.strip():
@@ -167,6 +192,9 @@ Write your post content here...
 
     def action_escape_quit(self) -> None:
         self.escapeQuit()
+    
+    def action_delete_post(self) -> None:
+        self.deletePost()
 
     def escapeReset(self) -> None:
         self.onceEscape = False
