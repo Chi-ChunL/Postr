@@ -70,6 +70,13 @@ Footer {
     padding: 1 2;
 }
 
+#deletePostBox {
+    width: 60;
+    height: auto;
+    border: round $error;
+    background: $surface;
+    padding: 1 2;
+}
 
 .popupTitle {
     text-style: bold;

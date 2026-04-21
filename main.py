@@ -8,7 +8,7 @@ from textual.widgets import Header, Footer, ListView, ListItem, Label, Markdown,
 
 POSTS_DIR = Path("posts")
 
-#Post box
+
 class NewPostScreen(ModalScreen[str | None]):
     def compose(self) -> ComposeResult:
         with Center():
@@ -31,11 +31,43 @@ class NewPostScreen(ModalScreen[str | None]):
     def key_escape(self) -> None:
         self.dismiss(None)
 
-#Main
+
+class DeletePostScreen(ModalScreen[bool]):
+    def __init__(self, postName: str):
+        super().__init__()
+        self.postName = postName
+
+    def compose(self) -> ComposeResult:
+        with Center():
+            with Middle():
+                with Vertical(id="deletePostBox"):
+                    yield Label("Delete Post", classes="popupTitle")
+                    yield Label(
+                        f"Are you sure you want to delete '{self.postName}'?\nYou will never see it again.",
+                        classes="popupHelp",
+                    )
+                    yield Label(
+                        "Press Y or Enter to confirm. Press N or Esc to cancel.",
+                        classes="popupHelp",
+                    )
+
+    def key_y(self) -> None:
+        self.dismiss(True)
+
+    def key_enter(self) -> None:
+        self.dismiss(True)
+
+    def key_n(self) -> None:
+        self.dismiss(False)
+
+    def key_escape(self) -> None:
+        self.dismiss(False)
+
+
 class PostrApp(App):
     CSS_PATH = "postr.tcss"
     BINDINGS = [
-        Binding("escape", "escape_quit", "Back / Quit"),
+        Binding("escape", "escape_quit", "Back / Quit", priority=False),
         Binding("r", "reload_posts", "Reload Posts"),
         Binding("d", "delete_post", "Delete Post"),
         Binding("ctrl+q", "noop", show=False),
@@ -47,7 +79,6 @@ class PostrApp(App):
         self.onceEscape = False
         self.currentPostPath = None
 
-    #UI Layout
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
 
@@ -66,17 +97,9 @@ class PostrApp(App):
 
         yield Footer()
 
-
-
-    def onMount(self) -> None:
+    def on_mount(self) -> None:
         POSTS_DIR.mkdir(exist_ok=True)
         self.loadPosts()
-
-
-    def on_mount(self) -> None:
-        self.onMount()
-
-
 
     def loadPosts(self) -> None:
         post_list = self.query_one("#postList", ListView)
@@ -92,20 +115,16 @@ class PostrApp(App):
             item.postPath = file
             post_list.append(item)
 
-    def onViewPost(self, event: ListView.Selected) -> None:
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
         item = event.item
         if not hasattr(item, "postPath"):
             return
-
 
         path = item.postPath
         self.currentPostPath = path
         content = path.read_text(encoding="utf-8")
         viewer = self.query_one("#viewer", Markdown)
         viewer.update(content)
-
-    def on_list_view_selected(self, event: ListView.Selected) -> None:
-        self.onViewPost(event)
 
     def makeSlug(self, title: str) -> str:
         safe = title.lower().strip().replace(" ", "-")
@@ -133,8 +152,6 @@ date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 status: draft
 ---
 
-# {title}
-
 Write your post content here...
 """
 
@@ -145,8 +162,8 @@ Write your post content here...
     def deletePost(self) -> None:
         if self.currentPostPath is None:
             self.notify("No post selected to be deleted", timeout=2)
-            self.loadPosts()
             return
+
         if not self.currentPostPath.exists():
             self.notify("Selected post file no longer exists", timeout=2)
             self.currentPostPath = None
@@ -154,15 +171,29 @@ Write your post content here...
             return
 
         deletedName = self.currentPostPath.stem
-        self.currentPostPath.unlink()
-        self.currentPostPath = None
+        deletedPath = self.currentPostPath
 
-        self.loadPosts()
+        def handleDeleteResult(confirmed: bool) -> None:
+            if not confirmed:
+                self.notify("Post deletion cancelled", timeout=2)
+                return
 
-        viewer = self.query_one("#viewer", Markdown)
-        viewer.update("# Welcome to Postr\n\nPlease either select a post from the left, or press **N** to create one.")
+            if not deletedPath.exists():
+                self.notify("Post file no longer exists", timeout=2)
+                self.currentPostPath = None
+                self.loadPosts()
+                return
 
-        self.notify(f"Post '{deletedName}' is deleted!", timeout=3)
+            deletedPath.unlink()
+            self.currentPostPath = None
+            self.loadPosts()
+
+            view = self.query_one("#viewer", Markdown)
+            view.update("# Welcome to Postr\n\nSelect a post from the left, or press **N** to create one.")
+
+            self.notify(f"Post '{deletedName}' deleted!", timeout=3)
+
+        self.push_screen(DeletePostScreen(deletedName), handleDeleteResult)
 
     def newPost(self) -> None:
         def handleResult(title: str | None) -> None:
@@ -192,7 +223,7 @@ Write your post content here...
 
     def action_escape_quit(self) -> None:
         self.escapeQuit()
-    
+
     def action_delete_post(self) -> None:
         self.deletePost()
 
@@ -201,8 +232,6 @@ Write your post content here...
 
     def action_noop(self) -> None:
         pass
-
-
 
 
 if __name__ == "__main__":
