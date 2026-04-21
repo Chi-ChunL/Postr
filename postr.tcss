@@ -70,6 +70,19 @@ Footer {
     padding: 1 2;
 }
 
+#editPostBox {
+    width: 90%;
+    height: 90%;
+    border: round $accent;
+    background: $surface;
+    padding: 1 2;
+}
+
+#editPostBox {
+    height: 1fr;
+    margin-top: 1;
+}
+
 #deletePostBox {
     width: 60;
     height: auto;
