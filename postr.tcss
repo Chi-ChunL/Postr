@@ -105,3 +105,24 @@ Footer {
     margin-top: 1;
     color: $text-muted;
 }
+
+#loginBox {
+    width: 60;
+    height: auto;
+    border: round $primary;
+    background: $surface;
+    padding: 1 2;
+}
+
+#editPostBox {
+    width: 90%;
+    height: 90%;
+    border: round $accent;
+    background: $surface;
+    padding: 1 2;
+}
+
+#editPostTextArea {
+    height: 1fr;
+    margin-top: 1;
+}
