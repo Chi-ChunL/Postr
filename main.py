@@ -7,6 +7,9 @@ from textual.widgets import Header, Footer, ListView, ListItem, Label, Markdown
 
 from features import NewPostScreen, DeletePostScreen, EditPostScreen
 from login import LoginScreen
+from auth import createUserTable
+
+
 
 POSTS_DIR = Path("posts")
 
@@ -47,19 +50,22 @@ class PostrApp(App):
 
         yield Footer()
 
+    #App lifecycle
     def on_mount(self) -> None:
+        createUserTable()
         POSTS_DIR.mkdir(exist_ok=True)
         self.loadPosts()
 
         def handleLoginResult(username: str | None) -> None:
             if isinstance(username, str) and username.strip():
                 self.currentUser = username.strip()
-            else:
-                self.currentUser = "Guest"
 
-            userLabel = self.query_one("#currentUserLabel", Label)
-            userLabel.update(f"Current user: {self.currentUser}")
-            self.notify(f"Logged in as {self.currentUser}", timeout=3)
+                userLabel = self.query_one("#currentUserLabel", Label)
+                userLabel.update(f"Current user: {self.currentUser}")
+                self.notify(f"Logged in as {self.currentUser}", timeout=3)
+            else:
+                self.exit()
+
 
         self.push_screen(LoginScreen(), handleLoginResult)
 
@@ -82,22 +88,31 @@ class PostrApp(App):
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         item = event.item
         if not hasattr(item, "postPath"):
-            return
+            return 
 
         path = item.postPath
         self.currentPostPath = path
-        content = path.read_text(encoding="utf-8")
+
+        try:
+            content = path.read_text(encoding="utf-8")
+        except Exception:
+            self.notify("Failed to read the post file", timeout=3)
+            return
+        
         viewer = self.query_one("#viewer", Markdown)
         viewer.update(content)
-
-    def makeSlug(self, title: str) -> str:
+    
+    def makeSlug(self, title: str) -> str: 
         safe = title.lower().strip().replace(" ", "-")
         safe = "".join(char for char in safe if char.isalnum() or char == "-")
         return safe or "untitled"
 
     def createPost(self, title: str) -> None:
         title = title.strip()
-        if title == "":
+
+        ok, message = self.validPostTitle(title)
+        if not ok:
+            self.notify(message, timeout=3)
             return
 
         POSTS_DIR.mkdir(exist_ok=True)
@@ -119,8 +134,12 @@ status: draft
 
 Write your post content here...
 """
-
-        file_path.write_text(content, encoding="utf-8")
+        try:
+            file_path.write_text(content, encoding="utf-8")
+        except Exception:
+            self.notify("Failed to create the post file", timeout=3)
+            return 
+        
         self.loadPosts()
         self.currentPostPath = file_path
 
@@ -128,6 +147,21 @@ Write your post content here...
         viewer.update(content)
 
         self.notify(f"Post '{title}' is created!", timeout=3)
+
+    def validPostTitle(self, title: str) -> tuple[bool, str]:
+        title = title.strip()
+        if title == "":
+            return False, "Title can't be empty."
+        if len(title) > 80:
+            return False, "Title must be at most 80 characters."
+        return True, ""
+    
+    def validPostContent(self, content: str) -> tuple[bool, str]:
+        if content.strip() == "":
+            return False, "Content can't be empty."
+        if len(content) > 20000:
+            return False, "Content must be at most 20000 characters."
+        return True, ""
 
     def deletePost(self) -> None:
         if self.currentPostPath is None:
@@ -143,6 +177,7 @@ Write your post content here...
         deletedName = self.currentPostPath.stem
         deletedPath = self.currentPostPath
 
+
         def handleDeleteResult(confirmed: bool) -> None:
             if not confirmed:
                 self.notify("Post deletion cancelled", timeout=2)
@@ -154,7 +189,12 @@ Write your post content here...
                 self.loadPosts()
                 return
 
-            deletedPath.unlink()
+            try:
+                deletedPath.unlink()
+            except Exception:
+                self.notify("Failed to delete the post file", timeout=3)
+                return
+            
             self.currentPostPath = None
             self.loadPosts()
 
@@ -184,9 +224,19 @@ Write your post content here...
             if newContent is None:
                 self.notify("Edit cancelled", timeout=2)
                 return
+            
+            ok, message = self.validPostContent(newContent)
+            if not ok:
+                self.notify(message, timeout=3)
+                return
+            
 
-            postPath.write_text(newContent, encoding="utf-8")
-
+            try:
+                postPath.write_text(newContent, encoding="utf-8")
+            except Exception:
+                self.notify("Failed to save the post file", timeout=3)
+                return
+            
             viewer = self.query_one("#viewer", Markdown)
             viewer.update(newContent)
 
@@ -201,8 +251,14 @@ Write your post content here...
             return
 
         def handleResult(title: str | None) -> None:
-            if isinstance(title, str) and title.strip():
-                self.createPost(title)
+            if not isinstance(title, str):
+                return
+            title = title.strip()
+            ok, message = self.validPostTitle(title)
+            if not ok:
+                self.notify(message, timeout=3)
+                return
+            self.createPost(title)
 
         self.push_screen(NewPostScreen(), handleResult)
 

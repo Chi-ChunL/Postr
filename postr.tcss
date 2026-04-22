@@ -1,128 +1,147 @@
 Screen {
     layout: vertical;
-    background: $surface;
+    background: #111111;
+    color: #e8e8e8;
 }
 
 Header {
     dock: top;
+    background: #141414;
+    color: #ffffff;
 }
 
 Footer {
     dock: bottom;
+    background: #141414;
+    color: #555555;
 }
 
 #mainLayout {
     height: 1fr;
     padding: 1 2;
-    grid-gutter: 2;
+    grid-gutter: 1;
+    background: #111111;
 }
 
 #sidebar {
-    width: 32%;
+    width: 30%;
     height: 1fr;
-    border: round $primary;
-    background: $panel;
+    background: #161616;
+    border: round #2a2a2a;
     padding: 1 1 0 1;
 }
 
 #contentPane {
-    width: 68%;
+    width: 70%;
     height: 1fr;
-    border: round $accent;
-    background: $panel;
+    background: #161616;
+    border: round #2a2a2a;
     padding: 1 2;
 }
 
 .sidebarTitle {
+    color: #ffffff;
     text-style: bold;
     margin-bottom: 1;
 }
 
 .sidebarSubTitle {
-    color: $text-muted;
+    color: #555555;
+    margin-bottom: 1;
+}
+
+#currentUserLabel {
+    color: #444444;
     margin-bottom: 1;
 }
 
 .viewerTitle {
+    color: #ffffff;
     text-style: bold;
-    color: $accent;
     margin-bottom: 1;
 }
-
 
 #postList {
     height: 1fr;
+    background: #111111;
+    border: tall #222222;
 }
 
 #viewer {
-    width: 70%;
-    border: round $accent;
-    padding: 1 2;
-}
-
-
-
-#newPostBox {
-    width: 60;
-    height: auto;
-    border: round $primary;
-    background: $surface;
-    padding: 1 2;
-}
-
-#editPostBox {
-    width: 90%;
-    height: 90%;
-    border: round $accent;
-    background: $surface;
-    padding: 1 2;
-}
-
-#editPostBox {
     height: 1fr;
-    margin-top: 1;
-}
-
-#deletePostBox {
-    width: 60;
-    height: auto;
-    border: round $error;
-    background: $surface;
+    background: #111111;
+    border: round #222222;
     padding: 1 2;
+    color: #cccccc;
 }
 
-.popupTitle {
-    text-style: bold;
-    margin-bottom: 1;
-}
-
-.popupSubTitle {
-    color: $text-muted;
-    margin-bottom: 1;
-}
-
-.popupHelp {
-    margin-top: 1;
-    color: $text-muted;
-}
-
+#newPostBox,
+#deletePostBox,
 #loginBox {
-    width: 60;
+    width: 64;
     height: auto;
-    border: round $primary;
-    background: $surface;
-    padding: 1 2;
+    background: #1a1a1a;
+    border: round #2e2e2e;
+    padding: 1 2 2 2;
 }
 
 #editPostBox {
     width: 90%;
     height: 90%;
-    border: round $accent;
-    background: $surface;
+    background: #1a1a1a;
+    border: round #2e2e2e;
     padding: 1 2;
 }
 
 #editPostTextArea {
     height: 1fr;
+    margin-top: 1;
+    background: #111111;
+    color: #cccccc;
+    border: round #2a2a2a;
+}
+
+#loginUsernameInput,
+#loginPasswordInput,
+#newPostInput {
+    margin-top: 1;
+    background: #1a1a1a;
+    color: #e8e8e8;
+    border: round #333333;
+    outline: none;
+    width: 52;
+}
+
+#loginUsernameInput:focus,
+#loginPasswordInput:focus,
+#newPostInput:focus {
+    background: #111111;
+    border: round #555555;
+    outline: none;
+}
+
+Input.-focus {
+    border: round #555555;
+    outline: none;
+}
+
+Input {
+    border: round #333333;
+    outline: none;
+}
+
+#loginMessage {
+    margin-top: 1;
+    color: #888888;
+}
+
+.popupTitle {
+    color: #ffffff;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+.popupHelp {
+    color: #555555;
     margin-top: 1;
 }
