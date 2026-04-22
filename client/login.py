@@ -4,7 +4,7 @@ from textual.containers import Center, Middle, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Label, Input
 
-from auth import registerUser, loginUser
+from server.auth import registerUser, loginUser
 
 
 class LoginScreen(ModalScreen[str | None]):

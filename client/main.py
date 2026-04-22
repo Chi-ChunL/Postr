@@ -5,11 +5,9 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Header, Footer, ListView, ListItem, Label, Markdown
 
-from features import NewPostScreen, DeletePostScreen, EditPostScreen
-from login import LoginScreen
-from auth import createUserTable
-
-
+from client.features import NewPostScreen, DeletePostScreen, EditPostScreen
+from client.login import LoginScreen
+from server.auth import createUserTable
 
 POSTS_DIR = Path("posts")
 
