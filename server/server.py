@@ -1,6 +1,6 @@
 from datetime import datetime
 from flask import Flask, jsonify, request
-from server.db import createPostsTable, getAllPosts, createPost
+from server.db import createPostsTable, getAllPosts, createPost, deletePost
 
 app = Flask(__name__)
 
@@ -48,6 +48,18 @@ def create_post():
         "content": content,
         "created_at": created_at
     }), 201
+
+
+@app.delete("/posts/<int:post_id>")
+def deleted_post(post_id: int):
+    deleted = deletePost(post_id)
+    if not deleted:
+        return jsonify({"error": "Post not found"}), 404
+    
+    return jsonify({
+        "message": "Post deleted successfully",
+        "id": post_id
+    }), 200
 
 
 if __name__ == "__main__":

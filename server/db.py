@@ -40,6 +40,18 @@ def createPost(title: str, author: str, content: str, created_at: str) -> int:
 
     return post_id
 
+def deletePost(post_id: int) -> bool:
+    conn = connectDB()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM posts WHERE id = ?", (post_id,))
+    conn.commit()
+
+    deleted = cursor.rowcount > 0
+    conn.close()
+
+    return deleted
+
 def getAllPosts():
     conn = connectDB()
     conn.row_factory = sqlite3.Row
