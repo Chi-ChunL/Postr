@@ -4,12 +4,15 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Header, Footer, ListView, ListItem, Label, Markdown
+import requests
 
 from client.features import NewPostScreen, DeletePostScreen, EditPostScreen
 from client.login import LoginScreen
 from server.auth import createUserTable
 
 POSTS_DIR = Path("posts")
+SERVER_URL = "http://127.0.0.1:5000"
+
 
 #Main
 class PostrApp(App):
@@ -26,7 +29,7 @@ class PostrApp(App):
     def __init__(self):
         super().__init__()
         self.onceEscape = False
-        self.currentPostPath = None
+        self.currentPost = None
         self.currentUser = None
 
     def compose(self) -> ComposeResult:
@@ -72,31 +75,40 @@ class PostrApp(App):
         post_list = self.query_one("#postList", ListView)
         post_list.clear()
 
-        files = sorted(POSTS_DIR.glob("*.md"))
-        if not files:
-            post_list.append(ListItem(Label("No posts yet")))
+        try:
+            response = requests.get(f"{SERVER_URL}/posts", timeout=5)
+            response.raise_for_status()
+            posts = response.json()
+        
+        except requests.RequestException:
+            self.notify("Failed to load posts from server", timeout=3)
+            post_list.append(ListItem(Label("Failed to load posts from server", classes="postItem")))
             return
 
-        for file in files:
-            item = ListItem(Label(file.stem))
-            item.postPath = file
+        if not posts:
+            post_list.append(ListItem(Label("No posts available. Press N to create one!", classes="postItem")))
+            return
+        for post in posts:
+            item  = ListItem(Label(post["title"], classes="postItem"))
+            item.postData = post
             post_list.append(item)
-
     # View post
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         item = event.item
-        if not hasattr(item, "postPath"):
+        if not hasattr(item, "postData"):
             return 
 
-        path = item.postPath
-        self.currentPostPath = path
+        post = item.postData
+        self.currentPost = post
 
-        try:
-            content = path.read_text(encoding="utf-8")
-        except Exception:
-            self.notify("Failed to read the post file", timeout=3)
-            return
         
+        content = f"""# {post['title']}
+**Author:**: {post['author']}
+**Created:**: {post['created_at']}
+
+{post['content']}
+"""
+
         viewer = self.query_one("#viewer", Markdown)
         viewer.update(content)
     

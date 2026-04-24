@@ -1,6 +1,6 @@
 from datetime import datetime
 from flask import Flask, jsonify, request
-from server.db import createPostsTable, getAllPosts, createPost, deletePost
+from server.db import createPostsTable, getAllPosts, createPost, deletePost, updatePost
 
 app = Flask(__name__)
 
@@ -59,6 +59,44 @@ def deleted_post(post_id: int):
     return jsonify({
         "message": "Post deleted successfully",
         "id": post_id
+    }), 200
+
+@app.put("/posts/<int:post_id>")
+def update_post(post_id: int):
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Invalid JSON data"}), 400
+    
+    title = str(data.get("title", "")).strip()
+    author = str(data.get("author", "")).strip()
+    content = str(data.get("content", "")).strip()
+
+    if title == "":
+        return jsonify({"error": "Title cannot be empty"}), 400
+    if author == "":
+        return jsonify({"error": "Author cannot be empty"}), 400
+    if content == "":
+        return jsonify({"error": "Content cannot be empty"}), 400
+    
+    if len(title) > 80:
+        return jsonify({"error": "Title must be at most 80 characters"}), 400
+    if len(author) > 20:
+        return jsonify({"error": "Author must be at most 20 characters"}), 400
+    if len(content) > 20000:
+        return jsonify({"error": "Content must be at most 20000 characters"}), 400
+    
+    updated = updatePost(post_id, title, author, content)
+
+    if not updated:
+        return jsonify({"error": "Post not found"}), 404
+
+    return jsonify({
+        "message": "Post updated successfully",
+        "id": post_id,
+        "title": title,
+        "author": author,
+        "content": content
     }), 200
 
 

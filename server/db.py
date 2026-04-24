@@ -52,6 +52,22 @@ def deletePost(post_id: int) -> bool:
 
     return deleted
 
+def updatePost(post_id: int, title: str, author: str, content: str) -> bool:
+    conn = connectDB()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE posts
+        SET title = ?, author = ?, content = ?
+        WHERE id = ?
+    """, (title, author, content, post_id))
+
+    conn.commit()
+    updated = cursor.rowcount > 0
+    conn.close()
+
+    return updated
+
 def getAllPosts():
     conn = connectDB()
     conn.row_factory = sqlite3.Row
