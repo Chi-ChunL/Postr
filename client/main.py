@@ -1,20 +1,16 @@
-from pathlib import Path
-from datetime import datetime
+import requests
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Header, Footer, ListView, ListItem, Label, Markdown
-import requests
 
 from client.features import NewPostScreen, DeletePostScreen, EditPostScreen
 from client.login import LoginScreen
 from server.auth import createUserTable
 
-POSTS_DIR = Path("posts")
 SERVER_URL = "http://127.0.0.1:5000"
 
 
-#Main
 class PostrApp(App):
     CSS_PATH = "postr.tcss"
     BINDINGS = [
@@ -51,10 +47,8 @@ class PostrApp(App):
 
         yield Footer()
 
-    #App lifecycle
     def on_mount(self) -> None:
         createUserTable()
-        POSTS_DIR.mkdir(exist_ok=True)
         self.loadPosts()
 
         def handleLoginResult(username: str | None) -> None:
@@ -67,10 +61,8 @@ class PostrApp(App):
             else:
                 self.exit()
 
-
         self.push_screen(LoginScreen(), handleLoginResult)
 
-    # Load posts
     def loadPosts(self) -> None:
         post_list = self.query_one("#postList", ListView)
         post_list.clear()
@@ -79,7 +71,6 @@ class PostrApp(App):
             response = requests.get(f"{SERVER_URL}/posts", timeout=5)
             response.raise_for_status()
             posts = response.json()
-        
         except requests.RequestException:
             self.notify("Failed to load posts from server", timeout=3)
             post_list.append(ListItem(Label("Failed to load posts from server", classes="postItem")))
@@ -88,34 +79,45 @@ class PostrApp(App):
         if not posts:
             post_list.append(ListItem(Label("No posts available. Press N to create one!", classes="postItem")))
             return
+
         for post in posts:
-            item  = ListItem(Label(post["title"], classes="postItem"))
+            item = ListItem(Label(post["title"], classes="postItem"))
             item.postData = post
             post_list.append(item)
-    # View post
+
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         item = event.item
         if not hasattr(item, "postData"):
-            return 
+            return
 
         post = item.postData
         self.currentPost = post
 
-        
         content = f"""# {post['title']}
-**Author:**: {post['author']}
-**Created:**: {post['created_at']}
+
+**Author:** {post['author']}  
+**Created:** {post['created_at']}
 
 {post['content']}
 """
 
         viewer = self.query_one("#viewer", Markdown)
         viewer.update(content)
-    
-    def makeSlug(self, title: str) -> str: 
-        safe = title.lower().strip().replace(" ", "-")
-        safe = "".join(char for char in safe if char.isalnum() or char == "-")
-        return safe or "untitled"
+
+    def validPostTitle(self, title: str) -> tuple[bool, str]:
+        title = title.strip()
+        if title == "":
+            return False, "Title can't be empty."
+        if len(title) > 80:
+            return False, "Title must be at most 80 characters."
+        return True, ""
+
+    def validPostContent(self, content: str) -> tuple[bool, str]:
+        if content.strip() == "":
+            return False, "Content can't be empty."
+        if len(content) > 20000:
+            return False, "Content must be at most 20000 characters."
+        return True, ""
 
     def createPost(self, title: str) -> None:
         title = title.strip()
@@ -125,87 +127,65 @@ class PostrApp(App):
             self.notify(message, timeout=3)
             return
 
-        POSTS_DIR.mkdir(exist_ok=True)
+        if not self.currentUser:
+            self.notify("You must be logged in to create a post.", timeout=3)
+            return
 
-        slug = self.makeSlug(title)
-        file_path = POSTS_DIR / f"{slug}.md"
+        content = "Write your post content here..."
 
-        count = 1
-        while file_path.exists():
-            file_path = POSTS_DIR / f"{slug}-{count}.md"
-            count += 1
-
-        content = f"""---
-title: {title}
-author: {self.currentUser}
-date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-status: draft
----
-
-Write your post content here...
-"""
         try:
-            file_path.write_text(content, encoding="utf-8")
-        except Exception:
-            self.notify("Failed to create the post file", timeout=3)
-            return 
-        
+            response = requests.post(
+                f"{SERVER_URL}/posts",
+                json={
+                    "title": title,
+                    "author": self.currentUser,
+                    "content": content,
+                },
+                timeout=5,
+            )
+            response.raise_for_status()
+            created_post = response.json()
+        except requests.RequestException:
+            self.notify("Failed to create post on server.", timeout=3)
+            return
+
         self.loadPosts()
-        self.currentPostPath = file_path
+        self.currentPost = created_post
+
+        preview = f"""# {created_post['title']}
+
+**Author:** {created_post['author']}  
+**Created:** {created_post['created_at']}
+
+{created_post['content']}
+"""
 
         viewer = self.query_one("#viewer", Markdown)
-        viewer.update(content)
+        viewer.update(preview)
 
         self.notify(f"Post '{title}' is created!", timeout=3)
 
-    def validPostTitle(self, title: str) -> tuple[bool, str]:
-        title = title.strip()
-        if title == "":
-            return False, "Title can't be empty."
-        if len(title) > 80:
-            return False, "Title must be at most 80 characters."
-        return True, ""
-    
-    def validPostContent(self, content: str) -> tuple[bool, str]:
-        if content.strip() == "":
-            return False, "Content can't be empty."
-        if len(content) > 20000:
-            return False, "Content must be at most 20000 characters."
-        return True, ""
-
     def deletePost(self) -> None:
-        if self.currentPostPath is None:
+        if self.currentPost is None:
             self.notify("No post selected to be deleted", timeout=2)
             return
 
-        if not self.currentPostPath.exists():
-            self.notify("Selected post file no longer exists", timeout=2)
-            self.currentPostPath = None
-            self.loadPosts()
-            return
-
-        deletedName = self.currentPostPath.stem
-        deletedPath = self.currentPostPath
-
+        deletedName = self.currentPost["title"]
+        deletedId = self.currentPost["id"]
 
         def handleDeleteResult(confirmed: bool) -> None:
             if not confirmed:
                 self.notify("Post deletion cancelled", timeout=2)
                 return
 
-            if not deletedPath.exists():
-                self.notify("Post file no longer exists", timeout=2)
-                self.currentPostPath = None
-                self.loadPosts()
+            try:
+                response = requests.delete(f"{SERVER_URL}/posts/{deletedId}", timeout=5)
+                response.raise_for_status()
+            except requests.RequestException:
+                self.notify("Failed to delete post from server.", timeout=3)
                 return
 
-            try:
-                deletedPath.unlink()
-            except Exception:
-                self.notify("Failed to delete the post file", timeout=3)
-                return
-            
-            self.currentPostPath = None
+            self.currentPost = None
             self.loadPosts()
 
             view = self.query_one("#viewer", Markdown)
@@ -215,45 +195,65 @@ Write your post content here...
 
         self.push_screen(DeletePostScreen(deletedName), handleDeleteResult)
 
-    # Edit post
     def editPost(self) -> None:
-        if self.currentPostPath is None:
+        if self.currentPost is None:
             self.notify("No post selected to edit", timeout=2)
             return
 
-        if not self.currentPostPath.exists():
-            self.notify("Selected post file is not there anymore", timeout=2)
-            self.currentPostPath = None
-            self.loadPosts()
-            return
-
-        postPath = self.currentPostPath
-        oldContent = postPath.read_text(encoding="utf-8")
+        postId = self.currentPost["id"]
+        oldTitle = self.currentPost["title"]
+        oldAuthor = self.currentPost["author"]
+        oldContent = self.currentPost["content"]
 
         def handleEditResult(newContent: str | None) -> None:
             if newContent is None:
                 self.notify("Edit cancelled", timeout=2)
                 return
-            
+
             ok, message = self.validPostContent(newContent)
             if not ok:
                 self.notify(message, timeout=3)
                 return
-            
 
             try:
-                postPath.write_text(newContent, encoding="utf-8")
-            except Exception:
-                self.notify("Failed to save the post file", timeout=3)
+                response = requests.put(
+                    f"{SERVER_URL}/posts/{postId}",
+                    json={
+                        "title": oldTitle,
+                        "author": oldAuthor,
+                        "content": newContent,
+                    },
+                    timeout=5,
+                )
+                response.raise_for_status()
+                updated_post = response.json()
+            except requests.RequestException:
+                self.notify("Failed to save post to server.", timeout=3)
                 return
-            
+
+            self.currentPost = {
+                "id": updated_post["id"],
+                "title": updated_post["title"],
+                "author": updated_post["author"],
+                "content": updated_post["content"],
+                "created_at": self.currentPost.get("created_at", "Unknown"),
+            }
+
+            preview = f"""# {self.currentPost['title']}
+
+**Author:** {self.currentPost['author']}  
+**Created:** {self.currentPost['created_at']}
+
+{self.currentPost['content']}
+"""
+
             viewer = self.query_one("#viewer", Markdown)
-            viewer.update(newContent)
+            viewer.update(preview)
 
             self.loadPosts()
-            self.notify(f"Post '{postPath.stem}' saved!", timeout=3)
+            self.notify(f"Post '{oldTitle}' updated!", timeout=3)
 
-        self.push_screen(EditPostScreen(postPath.stem, oldContent), handleEditResult)
+        self.push_screen(EditPostScreen(oldTitle, oldContent), handleEditResult)
 
     def newPost(self) -> None:
         if self.currentUser is None:
@@ -263,11 +263,13 @@ Write your post content here...
         def handleResult(title: str | None) -> None:
             if not isinstance(title, str):
                 return
+
             title = title.strip()
             ok, message = self.validPostTitle(title)
             if not ok:
                 self.notify(message, timeout=3)
                 return
+
             self.createPost(title)
 
         self.push_screen(NewPostScreen(), handleResult)
