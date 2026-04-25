@@ -1,4 +1,0 @@
-textual
-requests
-bcrypt
-flask
