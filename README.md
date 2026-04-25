@@ -27,52 +27,10 @@ Postr/
 │   └── auth.py
 ├── pyproject.toml
 └── README.md
+```
 
 
-# Postr-TUI
-
-Postr-TUI is a terminal-based blog/forum client built with **Python** and **Textual**. It connects to a **Flask + SQLite** backend and lets users log in, create posts, edit posts, delete posts, and browse content from either a **public server**, a **private local server**, or a **custom server URL**.
-
-The project started as a local markdown blog tool and has since been developed into a client/server posting app with user accounts, packaged distribution, and support for both shared and self-hosted use.
-
----
-
-## Features
-
-- Terminal user interface built with **Textual**
-- User login and registration
-- Password hashing with **bcrypt**
-- Create, view, edit, and delete posts
-- Flask backend with SQLite storage
-- Public / private / custom server selection
-- Packaged for installation as `postr-tui`
-- Dark modern terminal theme
-- Full-screen edit view
-
----
-
-## Project Structure
-
-```text
-Postr/
-├── client/
-│   ├── __init__.py
-│   ├── main.py
-│   ├── features.py
-│   ├── login.py
-│   ├── serverSelect.py
-│   └── postr.tcss
-├── server/
-│   ├── __init__.py
-│   ├── server.py
-│   ├── db.py
-│   └── auth.py
-├── pyproject.toml
-├── README.md
-└── .gitignore
-How It Works
-
-Postr-TUI uses a split architecture:
+##Postr-TUI uses a split architecture:
 
 Client: the Textual TUI that users interact with
 Server: a Flask backend that handles authentication and post storage
@@ -80,7 +38,7 @@ Database: SQLite database (postr.db) used by the server
 
 The client no longer relies on local markdown files for post management. Instead, it communicates with the backend through API routes.
 
-Current Functionality
+##Current Functionality
 
 The current version supports:
 
@@ -104,7 +62,7 @@ DELETE /posts/<id>
 
 Authentication is currently handled through the app’s login/register flow backed by SQLite and bcrypt.
 
-Installation
+##Installation
 Install from source
 
 Clone the repository and install locally:
@@ -177,7 +135,7 @@ virtual environment folders
 editor/system junk files
 Development Progress So Far
 
-Major milestones completed so far include:
+##Major milestones completed so far include:
 
 full-screen edit view fix
 migration from local post handling to server-backed CRUD
@@ -190,7 +148,7 @@ startup server selection flow
 package setup and TestPyPI upload
 Future Plans
 
-Planned improvements include:
+##Planned improvements include:
 
 replies / comments
 better forum-style discussion flow
@@ -202,17 +160,17 @@ real PyPI release
 cleaner post preview formatting
 Public vs Private Use
 
-Postr is being designed so users can choose between:
+#Postr is being designed so users can choose between:
 
-Public Mode
+#Public Mode
 
 Connect to a shared hosted Postr server and interact with other users.
 
-Private Mode
+#Private Mode
 
 Run a local or self-hosted Flask server and keep the blog/forum private.
 
-Custom Mode
+#Custom Mode
 
 Connect to any compatible Postr server URL.
 
