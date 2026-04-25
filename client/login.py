@@ -6,12 +6,12 @@ from textual.widgets import Label, Input
 
 from server.auth import registerUser, loginUser
 
-#Login Screen for client
+
 class LoginScreen(ModalScreen[str | None]):
     BINDINGS = [
         Binding("enter", "login", "Log In"),
         Binding("ctrl+r", "register", "Register"),
-        Binding("escape", "quit_app", "Quit"),
+        Binding("escape", "cancel_login", "Cancel"),
     ]
 
     def compose(self) -> ComposeResult:
@@ -20,7 +20,7 @@ class LoginScreen(ModalScreen[str | None]):
                 with Vertical(id="loginBox"):
                     yield Label("Login to Postr", classes="popupTitle")
                     yield Label(
-                        "Enter username and password.\nPress Enter to log in, or Ctrl+R to register.",
+                        "Enter username and password. Press Enter to log in, or Ctrl+R to register.",
                         classes="popupHelp",
                     )
                     yield Input(placeholder="Username...", id="loginUsernameInput")
@@ -30,26 +30,6 @@ class LoginScreen(ModalScreen[str | None]):
     def on_mount(self) -> None:
         self.query_one("#loginUsernameInput", Input).focus()
 
-    def validUsername(self, username: str) -> tuple[bool, str]:
-        if username == "":
-            return False, "Username can't be empty."
-        if len(username) < 3:
-            return False, "Username must be at least 3 characters."
-        if len(username) > 20:
-            return False, "Username must be at most 20 characters."
-        if not username.replace("_", "").replace("-", "").isalnum():
-            return False, "Username can only use letters, numbers, _ and -."
-        return True, ""
-    
-    def validPassword(self, password: str) -> tuple[bool, str]:
-        if password == "":
-            return False, "Password can't be empty."
-        if len(password) < 6:
-            return False, "Password must be at least 6 characters."
-        if len(password) > 64:
-            return False, "Password must be at most 64 characters."
-        return True, ""
-
     def getUsername(self) -> str:
         return self.query_one("#loginUsernameInput", Input).value.strip()
 
@@ -58,6 +38,26 @@ class LoginScreen(ModalScreen[str | None]):
 
     def setMessage(self, text: str) -> None:
         self.query_one("#loginMessage", Label).update(text)
+
+    def validUsername(self, username: str) -> tuple[bool, str]:
+        if username == "":
+            return False, "Username cannot be empty."
+        if len(username) < 3:
+            return False, "Username must be at least 3 characters."
+        if len(username) > 20:
+            return False, "Username must be at most 20 characters."
+        if not username.replace("_", "").replace("-", "").isalnum():
+            return False, "Username can only use letters, numbers, _ and -."
+        return True, ""
+
+    def validPassword(self, password: str) -> tuple[bool, str]:
+        if password == "":
+            return False, "Password cannot be empty."
+        if len(password) < 6:
+            return False, "Password must be at least 6 characters."
+        if len(password) > 64:
+            return False, "Password must be at most 64 characters."
+        return True, ""
 
     def action_login(self) -> None:
         username = self.getUsername()
@@ -78,9 +78,6 @@ class LoginScreen(ModalScreen[str | None]):
         else:
             self.setMessage("Invalid username or password.")
 
-        
-
-
     def action_register(self) -> None:
         username = self.getUsername()
         password = self.getPassword()
@@ -89,19 +86,19 @@ class LoginScreen(ModalScreen[str | None]):
         if not ok:
             self.setMessage(message)
             return
-        
+
         ok, message = self.validPassword(password)
         if not ok:
             self.setMessage(message)
             return
 
         if registerUser(username, password):
-            self.setMessage("Registration successful! You can now log in.")
+            self.setMessage("Account created. Press Enter to log in.")
         else:
             self.setMessage("That username already exists.")
 
-    def action_quit_app(self) -> None:
-        self.app.exit()
+    def action_cancel_login(self) -> None:
+        self.dismiss(None)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.action_login()

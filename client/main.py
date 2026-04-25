@@ -6,13 +6,8 @@ from textual.widgets import Header, Footer, ListView, ListItem, Label, Markdown
 
 from client.features import NewPostScreen, DeletePostScreen, EditPostScreen
 from client.login import LoginScreen
-from server.auth import createUserTable
 from client.serverSelect import ServerSelectScreen
-
-
-
-
-SERVER_URL = "http://127.0.0.1:5000"
+from server.auth import createUserTable
 
 
 class PostrApp(App):
@@ -31,7 +26,7 @@ class PostrApp(App):
         self.onceEscape = False
         self.currentPost = None
         self.currentUser = None
-        self.serverURL = None
+        self.serverUrl = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -79,7 +74,6 @@ class PostrApp(App):
         self.push_screen(ServerSelectScreen(), handleServerResult)
 
     def loadPosts(self) -> None:
-
         if not self.serverUrl:
             return
 
@@ -92,11 +86,15 @@ class PostrApp(App):
             posts = response.json()
         except requests.RequestException:
             self.notify("Failed to load posts from server", timeout=3)
-            post_list.append(ListItem(Label("Failed to load posts from server", classes="postItem")))
+            post_list.append(
+                ListItem(Label("Failed to load posts from server", classes="postItem"))
+            )
             return
 
         if not posts:
-            post_list.append(ListItem(Label("No posts available. Press N to create one!", classes="postItem")))
+            post_list.append(
+                ListItem(Label("No posts available. Press N to create one!", classes="postItem"))
+            )
             return
 
         for post in posts:
@@ -150,11 +148,15 @@ class PostrApp(App):
             self.notify("You must be logged in to create a post.", timeout=3)
             return
 
+        if not self.serverUrl:
+            self.notify("No server selected.", timeout=3)
+            return
+
         content = "Write your post content here..."
 
         try:
             response = requests.post(
-                f"{SERVER_URL}/posts",
+                f"{self.serverUrl}/posts",
                 json={
                     "title": title,
                     "author": self.currentUser,
@@ -189,6 +191,10 @@ class PostrApp(App):
             self.notify("No post selected to be deleted", timeout=2)
             return
 
+        if not self.serverUrl:
+            self.notify("No server selected.", timeout=3)
+            return
+
         deletedName = self.currentPost["title"]
         deletedId = self.currentPost["id"]
 
@@ -198,7 +204,10 @@ class PostrApp(App):
                 return
 
             try:
-                response = requests.delete(f"{SERVER_URL}/posts/{deletedId}", timeout=5)
+                response = requests.delete(
+                    f"{self.serverUrl}/posts/{deletedId}",
+                    timeout=5,
+                )
                 response.raise_for_status()
             except requests.RequestException:
                 self.notify("Failed to delete post from server.", timeout=3)
@@ -219,6 +228,10 @@ class PostrApp(App):
             self.notify("No post selected to edit", timeout=2)
             return
 
+        if not self.serverUrl:
+            self.notify("No server selected.", timeout=3)
+            return
+
         postId = self.currentPost["id"]
         oldTitle = self.currentPost["title"]
         oldAuthor = self.currentPost["author"]
@@ -236,7 +249,7 @@ class PostrApp(App):
 
             try:
                 response = requests.put(
-                    f"{SERVER_URL}/posts/{postId}",
+                    f"{self.serverUrl}/posts/{postId}",
                     json={
                         "title": oldTitle,
                         "author": oldAuthor,
@@ -327,9 +340,11 @@ class PostrApp(App):
     def action_noop(self) -> None:
         pass
 
+
 def main():
     app = PostrApp()
     app.run()
+
 
 if __name__ == "__main__":
     main()
