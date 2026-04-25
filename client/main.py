@@ -308,7 +308,9 @@ class PostrApp(App):
     def action_noop(self) -> None:
         pass
 
-
-if __name__ == "__main__":
+def main():
     app = PostrApp()
     app.run()
+
+if __name__ == "__main__":
+    main()

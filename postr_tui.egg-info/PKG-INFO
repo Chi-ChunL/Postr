@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: postr-tui
+Version: 0.1.0
+Summary: A terminal blog/forum client built with Textual
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: textual
+Requires-Dist: requests
+Requires-Dist: bcrypt
+Requires-Dist: flask
+
+# Postr
+A terminal based blogging tool for developer that wants to do everything in a terminal for some reason. It will lets users create, edit, publish, and manage markdown blog posts locally. 

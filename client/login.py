@@ -6,7 +6,7 @@ from textual.widgets import Label, Input
 
 from server.auth import registerUser, loginUser
 
-
+#Login Screen for client
 class LoginScreen(ModalScreen[str | None]):
     BINDINGS = [
         Binding("enter", "login", "Log In"),

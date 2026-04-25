@@ -1,0 +1,2 @@
+[console_scripts]
+postr-tui = client.main:main
