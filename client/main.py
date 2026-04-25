@@ -73,6 +73,27 @@ class PostrApp(App):
 
         self.push_screen(ServerSelectScreen(), handleServerResult)
 
+    def formatPostPreview(self, post: dict) -> str:
+        return f"""# {post['title']}
+
+**Author:** {post['author']}  
+**Created:** {post['created_at']}
+
+{post['content']}
+"""
+
+    def ensureServerSelected(self) -> bool:
+        if not self.serverUrl:
+            self.notify("No server selected.", timeout=3)
+            return False
+        return True
+
+    def ensurePostSelected(self, action: str) -> bool:
+        if self.currentPost is None:
+            self.notify(f"No post selected to {action}", timeout=2)
+            return False
+        return True
+
     def loadPosts(self) -> None:
         if not self.serverUrl:
             return
@@ -109,17 +130,10 @@ class PostrApp(App):
 
         post = item.postData
         self.currentPost = post
-
-        content = f"""# {post['title']}
-
-**Author:** {post['author']}  
-**Created:** {post['created_at']}
-
-{post['content']}
-"""
+        
 
         viewer = self.query_one("#viewer", Markdown)
-        viewer.update(content)
+        viewer.update(self.formatPostPreview(post))
 
     def validPostTitle(self, title: str) -> tuple[bool, str]:
         title = title.strip()
@@ -148,8 +162,7 @@ class PostrApp(App):
             self.notify("You must be logged in to create a post.", timeout=3)
             return
 
-        if not self.serverUrl:
-            self.notify("No server selected.", timeout=3)
+        if not self.ensureServerSelected():
             return
 
         content = "Write your post content here..."
@@ -173,26 +186,15 @@ class PostrApp(App):
         self.loadPosts()
         self.currentPost = created_post
 
-        preview = f"""# {created_post['title']}
-
-**Author:** {created_post['author']}  
-**Created:** {created_post['created_at']}
-
-{created_post['content']}
-"""
-
         viewer = self.query_one("#viewer", Markdown)
-        viewer.update(preview)
+        viewer.update(self.formatPostPreview(created_post))
 
         self.notify(f"Post '{title}' is created!", timeout=3)
 
     def deletePost(self) -> None:
-        if self.currentPost is None:
-            self.notify("No post selected to be deleted", timeout=2)
+        if not self.ensurePostSelected("be deleted"):
             return
-
-        if not self.serverUrl:
-            self.notify("No server selected.", timeout=3)
+        if not self.ensureServerSelected():
             return
 
         deletedName = self.currentPost["title"]
@@ -224,12 +226,9 @@ class PostrApp(App):
         self.push_screen(DeletePostScreen(deletedName), handleDeleteResult)
 
     def editPost(self) -> None:
-        if self.currentPost is None:
-            self.notify("No post selected to edit", timeout=2)
+        if not self.ensurePostSelected("edit"):
             return
-
-        if not self.serverUrl:
-            self.notify("No server selected.", timeout=3)
+        if not self.ensureServerSelected():
             return
 
         postId = self.currentPost["id"]
@@ -271,16 +270,8 @@ class PostrApp(App):
                 "created_at": self.currentPost.get("created_at", "Unknown"),
             }
 
-            preview = f"""# {self.currentPost['title']}
-
-**Author:** {self.currentPost['author']}  
-**Created:** {self.currentPost['created_at']}
-
-{self.currentPost['content']}
-"""
-
             viewer = self.query_one("#viewer", Markdown)
-            viewer.update(preview)
+            viewer.update(self.formatPostPreview(self.currentPost))
 
             self.loadPosts()
             self.notify(f"Post '{oldTitle}' updated!", timeout=3)

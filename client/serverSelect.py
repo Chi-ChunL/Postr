@@ -12,7 +12,7 @@ class ServerSelectScreen(ModalScreen[str | None]):
                     yield Label("Choose server mode", classes="popupTitle")
                     yield Label("1 = Public server", classes="popupHelp")
                     yield Label("2 = Private local server", classes="popupHelp")
-                    yield Label("3 = Custom server URL", classes="popupHelp")
+                    yield Label("3 = Custom server URL\n", classes="popupHelp")
                     yield Input(placeholder="Enter 1, 2, or 3...", id="serverModeInput")
                     yield Label("", id="serverModeMessage", classes="popupHelp")
 
