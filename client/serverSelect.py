@@ -26,7 +26,7 @@ class ServerSelectScreen(ModalScreen[str | None]):
         choice = event.value.strip()
 
         if choice == "1":
-            self.dismiss("https://your-public-postr-server.com")
+            self.dismiss("https://postr-production.up.railway.app")
             return
 
         if choice == "2":
