@@ -7,6 +7,10 @@ from textual.widgets import Header, Footer, ListView, ListItem, Label, Markdown
 from client.features import NewPostScreen, DeletePostScreen, EditPostScreen
 from client.login import LoginScreen
 from server.auth import createUserTable
+from client.serverSelect import ServerSelectScreen
+
+
+
 
 SERVER_URL = "http://127.0.0.1:5000"
 
@@ -27,6 +31,7 @@ class PostrApp(App):
         self.onceEscape = False
         self.currentPost = None
         self.currentUser = None
+        self.serverURL = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -49,26 +54,40 @@ class PostrApp(App):
 
     def on_mount(self) -> None:
         createUserTable()
-        self.loadPosts()
 
-        def handleLoginResult(username: str | None) -> None:
-            if isinstance(username, str) and username.strip():
-                self.currentUser = username.strip()
-
-                userLabel = self.query_one("#currentUserLabel", Label)
-                userLabel.update(f"Current user: {self.currentUser}")
-                self.notify(f"Logged in as {self.currentUser}", timeout=3)
-            else:
+        def handleServerResult(url: str | None) -> None:
+            if not url:
                 self.exit()
+                return
 
-        self.push_screen(LoginScreen(), handleLoginResult)
+            self.serverUrl = url
+            self.notify(f"Connected to {self.serverUrl}", timeout=3)
+            self.loadPosts()
+
+            def handleLoginResult(username: str | None) -> None:
+                if isinstance(username, str) and username.strip():
+                    self.currentUser = username.strip()
+
+                    userLabel = self.query_one("#currentUserLabel", Label)
+                    userLabel.update(f"Current user: {self.currentUser}")
+                    self.notify(f"Logged in as {self.currentUser}", timeout=3)
+                else:
+                    self.exit()
+
+            self.push_screen(LoginScreen(), handleLoginResult)
+
+        self.push_screen(ServerSelectScreen(), handleServerResult)
 
     def loadPosts(self) -> None:
+
+        if not self.serverUrl:
+            return
+
         post_list = self.query_one("#postList", ListView)
         post_list.clear()
 
         try:
-            response = requests.get(f"{SERVER_URL}/posts", timeout=5)
+            response = requests.get(f"{self.serverUrl}/posts", timeout=5)
             response.raise_for_status()
             posts = response.json()
         except requests.RequestException:

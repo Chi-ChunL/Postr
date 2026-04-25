@@ -145,3 +145,11 @@ Input {
     color: #555555;
     margin-top: 1;
 }
+
+#serverSelectBox {
+    width: 64;
+    height: auto;
+    background: #1a1a1a;
+    border: round #2e2e2e;
+    padding: 1 2 2 2;
+}
