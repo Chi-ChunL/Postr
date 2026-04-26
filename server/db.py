@@ -143,8 +143,8 @@ def createReply(post_id: int, author: str, content: str, created_at: str) -> int
 
 def getPostById(post_id: int):
     conn = connectDB()
-    cursor = conn.cursor
     conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
 
     cursor.execute("""
         SELECT id, title, author, content, created_at
@@ -159,5 +159,4 @@ def getPostById(post_id: int):
         return None
     
     return dict(row)
-
 
