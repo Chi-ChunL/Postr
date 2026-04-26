@@ -2,7 +2,8 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent.parent / "postr.db"
+_VOLUME = Path("/data")
+DB_PATH = (_VOLUME / "postr.db") if _VOLUME.exists() else (Path(__file__).resolve().parent.parent / "postr.db")
 
 
 @contextmanager
@@ -40,8 +41,7 @@ def initDB() -> None:
         """)
 
 
-# Posts
-
+#Posts 
 def getAllPosts() -> list[dict]:
     with _db() as (_, cur):
         cur.execute("SELECT id, title, author, content, created_at FROM posts ORDER BY id DESC")
@@ -82,8 +82,7 @@ def deletePost(post_id: int) -> bool:
         return cur.rowcount > 0
 
 
-#Replies 
-
+#Replies
 def getReplies(post_id: int) -> list[dict]:
     with _db() as (_, cur):
         cur.execute(
