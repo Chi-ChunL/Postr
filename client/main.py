@@ -2,7 +2,7 @@ import requests
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Header, Footer, ListView, ListItem, Label, Markdown
+from textual.widgets import Header, Footer, ListView, ListItem, Label, Markdown, TextArea
 
 from client.features import NewPostScreen, DeletePostScreen, EditPostScreen, ReplyScreen
 from client.login import LoginScreen
@@ -19,7 +19,8 @@ class PostrApp(App):
         Binding("e", "edit_post", "Edit Post"),
         Binding("ctrl+q", "noop", show=False),
         Binding("n", "new_post", "New Post"),
-        Binding("c", "reply_post", "Reply")
+        Binding("c", "reply_post", "Reply"),
+        Binding("ctrl+s", "submit_reply", "Send Reply"),
     ]
 
     def __init__(self):
@@ -45,6 +46,10 @@ class PostrApp(App):
                     "# Welcome to Postr\n\nSelect a post from the left, or press **N** to create one.",
                     id="viewer",
                 )
+
+                with Vertical(id="replyPane"):
+                    yield Label("REPLY", classes="viewerTitle")
+                    yield TextArea("", id="replyTextArea")
 
         yield Footer()
 
@@ -128,24 +133,11 @@ class PostrApp(App):
         item = event.item
         if not hasattr(item, "postData"):
             return
-
-        post = item.postData
-        self.currentPost = post
         
-        replies = []
-        if self.serverUrl:
-            try:
-                response = requests.get(f"{self.serverUrl}/posts/{post['id']}/replies", timeout=5)
-                response.raise_for_status()
-                replies = response.json()
+        self.currentPost = item.postData
+        self.refreshCurrentPostWithReplies
 
-            except requests.RequestException:
-                self.notify("Failed to load replies from server", timeout=3)
 
-        preview = self.formatPostPreview(post) + self.formatReplies(replies)
-
-        viewer = self.query_one("#viewer", Markdown)
-        viewer.update(preview)
 
     def validPostTitle(self, title: str) -> tuple[bool, str]:
         title = title.strip()
@@ -343,6 +335,7 @@ class PostrApp(App):
             return
         if not self.currentUser:
             self.notify("Please log in first", timeout=2)
+            return
         
         postId = self.currentPost["id"]
         postTitle = self.currentPost["title"]
@@ -396,6 +389,10 @@ class PostrApp(App):
 
     def action_edit_post(self) -> None:
         self.editPost()
+    
+    def clearReplyBox(self) -> None:
+        reply_box = self.query_one("#replyTextArea", TextArea)
+        reply_box.text = ""
 
     def reloadPosts(self) -> None:
         self.loadPosts()
@@ -427,6 +424,63 @@ class PostrApp(App):
     
     def action_reply_post(self) -> None:
         self.replyToPost()
+
+    def action_submit_reply(self) -> None:
+        if not self.ensurePostSelected("reply to"):
+            return
+        if not self.ensureServerSelected():
+            return
+        if not self.currentUser:
+            self.notify("Please login first", timeout=2)
+            return
+        
+        reply_box = self.query_one("#replyTextArea", TextArea)
+        new_reply = reply_box.text
+
+        ok, message = self.validReplyContent(new_reply)
+        if not ok:
+            self.notify(message, timeout=3)
+            return
+
+        post_id = self.currentPost["id"]
+
+        try:
+            response = requests.post(
+                f"{self.serverUrl}/posts/{post_id}/replies",
+                json={
+                    "author": self.currentUser,
+                    "content": new_reply,
+                },
+                timeout=5,
+            )
+            response.raise_for_status()
+        except requests.RequestException:
+            self.notify("Failed to post reply.", timeout=3)
+            return
+
+        self.clearReplyBox()
+        self.refreshCurrentPostWithReplies()
+        self.notify("Reply posted!", timeout=3)
+
+
+    def refreshCurrentPostWithReplies(self) -> None:
+        if self.currentPost is None or not self.serverUrl:
+            return
+
+        replies = []
+        try:
+            response = requests.get(
+                f"{self.serverUrl}/posts/{self.currentPost['id']}/replies",
+                timeout=5,
+            )
+            response.raise_for_status()
+            replies = response.json()
+        except requests.RequestException:
+            self.notify("Failed to load replies from server", timeout=3)
+
+        viewer = self.query_one("#viewer", Markdown)
+        viewer.update(self.formatPostPreview(self.currentPost) + self.formatReplies(replies))
+
 
 def main():
     app = PostrApp()

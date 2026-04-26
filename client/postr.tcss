@@ -169,3 +169,20 @@ Input {
     color: #cccccc;
     border: round #2a2a2a;
 }
+
+#viewer {
+    height: 1fr;
+}
+
+#replyPane {
+    height: 10;
+    border-top: solid #2e2e2e;
+    padding-top: 1;
+}
+
+#replyTextArea {
+    height: 1fr;
+    background: #111111;
+    color: #cccccc;
+    border: round #2a2a2a;
+}
