@@ -5,6 +5,10 @@ from textual.widgets import Label, Input
 
 
 class ServerSelectScreen(ModalScreen[str | None]):
+    def __init__(self, initial_server: str | None = None):
+        super().__init__()
+        self.initial_server = initial_server
+
     def compose(self) -> ComposeResult:
         with Center():
             with Middle():
@@ -12,8 +16,15 @@ class ServerSelectScreen(ModalScreen[str | None]):
                     yield Label("Choose server mode", classes="popupTitle")
                     yield Label("1 = Public server", classes="popupHelp")
                     yield Label("2 = Private local server", classes="popupHelp")
-                    yield Label("3 = Custom server URL\n", classes="popupHelp")
-                    yield Input(placeholder="Enter 1, 2, or 3...", id="serverModeInput")
+                    yield Label("3 = Custom server URL", classes="popupHelp")
+                    yield Input(
+                        value="3" if self.initial_server and self.initial_server not in {
+                            "https://postr-production.up.railway.app",
+                            "http://127.0.0.1:5000",
+                        } else "",
+                        placeholder="Enter 1, 2, or 3...",
+                        id="serverModeInput",
+                    )
                     yield Label("", id="serverModeMessage", classes="popupHelp")
 
     def on_mount(self) -> None:
@@ -34,7 +45,7 @@ class ServerSelectScreen(ModalScreen[str | None]):
             return
 
         if choice == "3":
-            self.app.push_screen(CustomServerScreen(), self.handleCustomResult)
+            self.app.push_screen(CustomServerScreen(self.initial_server), self.handleCustomResult)
             return
 
         self.setMessage("Please enter 1, 2, or 3.")
@@ -48,12 +59,20 @@ class ServerSelectScreen(ModalScreen[str | None]):
 
 
 class CustomServerScreen(ModalScreen[str | None]):
+    def __init__(self, initial_server: str | None = None):
+        super().__init__()
+        self.initial_server = initial_server or ""
+
     def compose(self) -> ComposeResult:
         with Center():
             with Middle():
                 with Vertical(id="serverSelectBox"):
                     yield Label("Custom server URL", classes="popupTitle")
-                    yield Input(placeholder="Enter full URL...", id="customServerInput")
+                    yield Input(
+                        value=self.initial_server,
+                        placeholder="Enter full URL...",
+                        id="customServerInput",
+                    )
                     yield Label("Example: http://127.0.0.1:5000", classes="popupHelp")
 
     def on_mount(self) -> None:

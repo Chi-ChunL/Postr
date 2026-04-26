@@ -186,3 +186,26 @@ Input {
     color: #cccccc;
     border: round #2a2a2a;
 }
+
+Checkbox {
+    background: transparent;
+    color: #aaaaaa;
+    margin-top: 1;
+    width: auto;
+}
+
+Checkbox:focus {
+    background: transparent;
+    color: #ffffff;
+    text-style: bold;
+}
+
+#rememberMeCheckbox {
+    background: transparent;
+    border: none;
+}
+
+#rememberMeCheckbox:focus {
+    background: transparent;
+    border: none;
+}

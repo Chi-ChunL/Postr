@@ -6,6 +6,8 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import Header, Footer, ListView, ListItem, Label, Markdown, TextArea
 from textual.worker import get_current_worker
 
+from client.config import loadConfig, saveConfig
+from client.credentials import loadPassword, savePassword, deletePassword
 from client.features import NewPostScreen, DeletePostScreen, EditPostScreen
 from client.login import LoginScreen
 from client.serverSelect import ServerSelectScreen
@@ -59,6 +61,12 @@ class PostrApp(App):
 
     def on_mount(self) -> None:
         createUserTable()
+        config = loadConfig()
+
+        remembered_server = config.get("server_url", "")
+        remembered_username = config.get("username", "")
+        remember_me = config.get("remember_me", False)
+        remembered_password = loadPassword(remembered_username) if remember_me and remembered_username else ""
 
         def on_server(url: str | None) -> None:
             if not url:
@@ -68,18 +76,44 @@ class PostrApp(App):
             self.serverUrl = url
             self.notify(f"Connected to {url}", timeout=3)
             self.loadPosts()
-            self.push_screen(LoginScreen(), on_login)
+            self.push_screen(
+                LoginScreen(
+                    remembered_username=remembered_username,
+                    remembered_password=remembered_password or "",
+                ),
+                on_login,
+            )
 
-        def on_login(username: str | None) -> None:
-            if not (isinstance(username, str) and username.strip()):
+        def on_login(result: dict | None) -> None:
+            if not result:
                 self.exit()
                 return
 
-            self.currentUser = username.strip()
+            username = result["username"]
+            password = result["password"]
+            remember = result["remember_me"]
+
+            self.currentUser = username
             self.query_one("#currentUserLabel", Label).update(f"Logged in as {self.currentUser}")
             self.notify(f"Welcome, {self.currentUser}!", timeout=3)
 
-        self.push_screen(ServerSelectScreen(), on_server)
+            if remember:
+                saveConfig({
+                    "username": username,
+                    "server_url": self.serverUrl,
+                    "remember_me": True,
+                })
+                savePassword(username, password)
+            else:
+                saveConfig({
+                    "username": "",
+                    "server_url": self.serverUrl,
+                    "remember_me": False,
+                })
+                deletePassword(username)
+
+        initial_server = remembered_server if remembered_server else None
+        self.push_screen(ServerSelectScreen(initial_server=initial_server), on_server)
 
     def _formatPost(self, post: dict) -> str:
         return (

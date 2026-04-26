@@ -1,18 +1,23 @@
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Center, Middle, Vertical
+from textual.events import Key
 from textual.screen import ModalScreen
-from textual.widgets import Label, Input
+from textual.widgets import Label, Input, Checkbox
 
 from server.auth import registerUser, loginUser
 
 
-class LoginScreen(ModalScreen[str | None]):
+class LoginScreen(ModalScreen[dict | None]):
     BINDINGS = [
-        Binding("enter", "login", "Log In"),
         Binding("ctrl+r", "register", "Register"),
         Binding("escape", "cancel_login", "Cancel"),
     ]
+
+    def __init__(self, remembered_username: str = "", remembered_password: str = ""):
+        super().__init__()
+        self.remembered_username = remembered_username
+        self.remembered_password = remembered_password
 
     def compose(self) -> ComposeResult:
         with Center():
@@ -23,18 +28,47 @@ class LoginScreen(ModalScreen[str | None]):
                         "Enter username and password. Press Enter to log in, or Ctrl+R to register.",
                         classes="popupHelp",
                     )
-                    yield Input(placeholder="Username...", id="loginUsernameInput")
-                    yield Input(placeholder="Password...", id="loginPasswordInput")
+                    yield Input(
+                        value=self.remembered_username,
+                        placeholder="Username...",
+                        id="loginUsernameInput",
+                    )
+                    yield Input(
+                        value=self.remembered_password,
+                        placeholder="Password...",
+                        password=True,
+                        id="loginPasswordInput",
+                    )
+                    yield Checkbox(
+                        "Remember me",
+                        value=bool(self.remembered_username),
+                        id="rememberMeCheckbox",
+                    )
                     yield Label("", id="loginMessage", classes="popupHelp")
 
     def on_mount(self) -> None:
-        self.query_one("#loginUsernameInput", Input).focus()
+        if self.remembered_username:
+            self.query_one("#loginPasswordInput", Input).focus()
+        else:
+            self.query_one("#loginUsernameInput", Input).focus()
+
+    def on_key(self, event: Key) -> None:
+        focused = self.app.focused
+
+        if event.key == "enter" and getattr(focused, "id", None) == "rememberMeCheckbox":
+            checkbox = self.query_one("#rememberMeCheckbox", Checkbox)
+            checkbox.value = not checkbox.value
+            event.prevent_default()
+            event.stop()
 
     def getUsername(self) -> str:
         return self.query_one("#loginUsernameInput", Input).value.strip()
 
     def getPassword(self) -> str:
         return self.query_one("#loginPasswordInput", Input).value
+
+    def getRememberMe(self) -> bool:
+        return self.query_one("#rememberMeCheckbox", Checkbox).value
 
     def setMessage(self, text: str) -> None:
         self.query_one("#loginMessage", Label).update(text)
@@ -62,6 +96,7 @@ class LoginScreen(ModalScreen[str | None]):
     def action_login(self) -> None:
         username = self.getUsername()
         password = self.getPassword()
+        remember_me = self.getRememberMe()
 
         ok, message = self.validUsername(username)
         if not ok:
@@ -74,7 +109,11 @@ class LoginScreen(ModalScreen[str | None]):
             return
 
         if loginUser(username, password):
-            self.dismiss(username)
+            self.dismiss({
+                "username": username,
+                "password": password,
+                "remember_me": remember_me,
+            })
         else:
             self.setMessage("Invalid username or password.")
 
