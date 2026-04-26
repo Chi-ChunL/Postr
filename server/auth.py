@@ -7,7 +7,7 @@ DB_NAME = "postr.db"
 def connectDB():
     return sqlite3.connect(DB_NAME)
 
-
+#create user table
 def createUserTable() -> None:
     conn = connectDB()
     cursor = conn.cursor()
