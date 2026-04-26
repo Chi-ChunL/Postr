@@ -4,7 +4,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Header, Footer, ListView, ListItem, Label, Markdown
 
-from client.features import NewPostScreen, DeletePostScreen, EditPostScreen
+from client.features import NewPostScreen, DeletePostScreen, EditPostScreen, ReplyScreen
 from client.login import LoginScreen
 from client.serverSelect import ServerSelectScreen
 from server.auth import createUserTable
@@ -19,6 +19,7 @@ class PostrApp(App):
         Binding("e", "edit_post", "Edit Post"),
         Binding("ctrl+q", "noop", show=False),
         Binding("n", "new_post", "New Post"),
+        Binding("c", "reply_post", "Reply")
     ]
 
     def __init__(self):
@@ -131,9 +132,20 @@ class PostrApp(App):
         post = item.postData
         self.currentPost = post
         
+        replies = []
+        if self.serverUrl:
+            try:
+                response = requests.get(f"{self.serverUrl}/posts/{post['id']}/replies", timeout=5)
+                response.raise_for_status()
+                replies = response.json()
+
+            except requests.RequestException:
+                self.notify("Failed to load replies from server", timeout=3)
+
+        preview = self.formatPostPreview(post) + self.formatReplies(replies)
 
         viewer = self.query_one("#viewer", Markdown)
-        viewer.update(self.formatPostPreview(post))
+        viewer.update(preview)
 
     def validPostTitle(self, title: str) -> tuple[bool, str]:
         title = title.strip()
@@ -297,6 +309,75 @@ class PostrApp(App):
 
         self.push_screen(NewPostScreen(), handleResult)
 
+
+    def formatReplies(self, replies: list[dict]) -> str:
+        if not replies:
+            return "\n## Replies\n\nNo replies yet."
+        
+        reply_blocks = ["\n## Replies\n"]
+        for reply in replies:
+            reply_blocks.append(
+                f"### {reply['author']} — {reply['created_at']}\n\n{reply['content']}\n"
+            )
+        return "\n".join(reply_blocks)
+
+    def validReplyContent(self, content: str) -> tuple[bool, str]:
+        if content.strip() == "":
+            return False, "Reply can't be empty"
+        if len(content) > 5000:
+            return False, "Reply must be at most 5000 characters"
+        return True, ""
+    
+    def replyToPost(self) -> None:
+        if not self.ensurePostSelected("reply to"):
+            return
+        if not self.ensureServerSelected():
+            return
+        if not self.currentUser:
+            self.notify("Please log in first", timeout=2)
+        
+        postId = self.currentPost["id"]
+        postTitle = self.currentPost["title"]
+
+        def handleReplyResult(newReply: str | None) -> None:
+            if newReply is None:
+                self.notify("Reply is cancelled", timeout=2)
+                return
+            
+            ok, message = self.validReplyContent(newReply)
+            if not ok:
+                self.notify(message, timeout=3)
+                return
+
+            try:
+                response = requests.post(
+                    f"{self.serverUrl}/posts/{postId}/replies",
+                    json={
+                        "author": self.currentUser,
+                        "content": newReply,
+                    },
+                    timeout=5
+                )
+                response.raise_for_status()
+            except requests.RequestException:
+                self.notify("Failed to post reply", timeout=3)
+                return
+            
+            replies = []
+            try:
+                response = requests.get(f"{self.serverUrl}/posts/{postId}/replies", timeout=5)
+                response.raise_for_status()
+                replies = response.json()
+            except requests.RequestException:
+                self.notify("Reply posted, but failed to refresh replies.", timeout=3)
+
+            viewer = self.query_one("#viewer", Markdown)
+            viewer.update(self.formatPostPreview(self.currentPost) + self.formatReplies(replies))
+
+            self.notify("Reply posted!", timeout=3)
+
+        self.push_screen(ReplyScreen(postTitle), handleReplyResult)
+
     def action_new_post(self) -> None:
         self.newPost()
 
@@ -330,7 +411,9 @@ class PostrApp(App):
 
     def action_noop(self) -> None:
         pass
-
+    
+    def action_reply_post(self) -> None:
+        self.replyToPost()
 
 def main():
     app = PostrApp()

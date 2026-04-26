@@ -25,6 +25,7 @@ def createPostsTable() -> None:
     conn.commit()
     conn.close()
 
+
 def createPost(title: str, author: str, content: str, created_at: str) -> int:
     conn = connectDB()
     cursor = conn.cursor()
@@ -40,6 +41,7 @@ def createPost(title: str, author: str, content: str, created_at: str) -> int:
 
     return post_id
 
+
 def deletePost(post_id: int) -> bool:
     conn = connectDB()
     cursor = conn.cursor()
@@ -51,6 +53,7 @@ def deletePost(post_id: int) -> bool:
     conn.close()
 
     return deleted
+
 
 def updatePost(post_id: int, title: str, author: str, content: str) -> bool:
     conn = connectDB()
@@ -68,6 +71,7 @@ def updatePost(post_id: int, title: str, author: str, content: str) -> bool:
 
     return updated
 
+
 def getAllPosts():
     conn = connectDB()
     conn.row_factory = sqlite3.Row
@@ -83,3 +87,56 @@ def getAllPosts():
     conn.close()
 
     return [dict(row) for row in rows]
+
+
+def createRepliesTable() -> None:
+    conn = connectDB()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS replies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            post_id INTEGER NOT NULL,
+            author TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (post_id) REFERENCES posts(id)
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+def getReplies(post_id: int):
+    conn = connectDB()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, post_id, author, content, created_at
+        FROM replies
+        WHERE post_id = ?
+        ORDER BY id ASC
+    """, (post_id,))
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [dict(row) for row in rows]
+
+
+def createReply(post_id: int, author: str, content: str, created_at: str) -> int:
+    conn = connectDB()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO replies (post_id, author, content, created_at)
+        VALUES (?, ?, ?, ?)
+    """, (post_id, author, content, created_at))
+
+    conn.commit()
+    reply_id = cursor.lastrowid
+    conn.close()
+
+    return reply_id

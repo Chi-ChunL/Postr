@@ -85,3 +85,29 @@ class EditPostScreen(ModalScreen[str | None]):
 
     def action_cancel(self) -> None:
         self.dismiss(None)
+
+class ReplyScreen(ModalScreen[str | None]):
+    BINDINGS = [
+        ("ctrl+s", "submit_reply", "Reply"),
+        ("escape", "cancel_reply", "Cancel"),
+    ]
+
+    def __init__(self, postTitle: str):
+        super().__init__()
+        self.postTitle = postTitle
+    
+    def compose(self) -> ComposeResult:
+        with Vertical(id="replyBox"):
+            yield Label(f"Replying to: {self.postTitle}", classes="popupTitle")
+            yield Label("Ctrl+S to post reply, Esc to cancel", classes="popupHelp")
+            yield TextArea("", id="replyTextArea")
+    
+    def on_mount(self) -> None:
+        self.query_one("#replyTextArea", TextArea).focus()
+    
+    def action_submit_reply(self) -> None:
+        content = self.query_one("#replyTextArea", TextArea).text
+        self.dismiss(content)
+    
+    def action_cancel_reply(self) -> None:
+        self.dismiss(None)
