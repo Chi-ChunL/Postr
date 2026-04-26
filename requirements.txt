@@ -3,3 +3,4 @@ requests
 textual
 bcrypt
 psycopg2-binary
+gunicorn
