@@ -1,5 +1,5 @@
 flask
-bcrypt
 requests
-gunicorn
 textual
+bcrypt
+psycopg2-binary
