@@ -4,7 +4,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Header, Footer, ListView, ListItem, Label, Markdown, TextArea
 
-from client.features import NewPostScreen, DeletePostScreen, EditPostScreen, ReplyScreen
+from client.features import NewPostScreen, DeletePostScreen, EditPostScreen
 from client.login import LoginScreen
 from client.serverSelect import ServerSelectScreen
 from server.auth import createUserTable
@@ -17,10 +17,10 @@ class PostrApp(App):
         Binding("r", "reload_posts", "Reload Posts"),
         Binding("d", "delete_post", "Delete Post"),
         Binding("e", "edit_post", "Edit Post"),
-        Binding("ctrl+q", "noop", show=False),
         Binding("n", "new_post", "New Post"),
         Binding("c", "reply_post", "Reply"),
         Binding("ctrl+s", "submit_reply", "Send Reply"),
+        Binding("ctrl+q", "noop", show=False),
     ]
 
     def __init__(self):
@@ -88,6 +88,17 @@ class PostrApp(App):
 {post['content']}
 """
 
+    def formatReplies(self, replies: list[dict]) -> str:
+        if not replies:
+            return "\n## Replies\n\nNo replies yet."
+
+        reply_blocks = ["\n## Replies\n"]
+        for reply in replies:
+            reply_blocks.append(
+                f"### {reply['author']} — {reply['created_at']}\n\n{reply['content']}\n"
+            )
+        return "\n".join(reply_blocks)
+
     def ensureServerSelected(self) -> bool:
         if not self.serverUrl:
             self.notify("No server selected.", timeout=3)
@@ -99,6 +110,37 @@ class PostrApp(App):
             self.notify(f"No post selected to {action}", timeout=2)
             return False
         return True
+
+    def isCurrentUserAuthor(self) -> bool:
+        if self.currentPost is None or self.currentUser is None:
+            return False
+        return self.currentPost.get("author") == self.currentUser
+
+    def validPostTitle(self, title: str) -> tuple[bool, str]:
+        title = title.strip()
+        if title == "":
+            return False, "Title can't be empty."
+        if len(title) > 80:
+            return False, "Title must be at most 80 characters."
+        return True, ""
+
+    def validPostContent(self, content: str) -> tuple[bool, str]:
+        if content.strip() == "":
+            return False, "Content can't be empty."
+        if len(content) > 20000:
+            return False, "Content must be at most 20000 characters."
+        return True, ""
+
+    def validReplyContent(self, content: str) -> tuple[bool, str]:
+        if content.strip() == "":
+            return False, "Reply can't be empty."
+        if len(content) > 5000:
+            return False, "Reply must be at most 5000 characters."
+        return True, ""
+
+    def clearReplyBox(self) -> None:
+        reply_box = self.query_one("#replyTextArea", TextArea)
+        reply_box.text = ""
 
     def loadPosts(self) -> None:
         if not self.serverUrl:
@@ -129,30 +171,35 @@ class PostrApp(App):
             item.postData = post
             post_list.append(item)
 
+    def refreshCurrentPostWithReplies(self) -> None:
+        if self.currentPost is None:
+            return
+
+        viewer = self.query_one("#viewer", Markdown)
+        preview = self.formatPostPreview(self.currentPost)
+
+        replies = []
+        if self.serverUrl:
+            try:
+                response = requests.get(
+                    f"{self.serverUrl}/posts/{self.currentPost['id']}/replies",
+                    timeout=5,
+                )
+                response.raise_for_status()
+                replies = response.json()
+            except requests.RequestException:
+                self.notify("Failed to load replies from server", timeout=3)
+
+        viewer.update(preview + self.formatReplies(replies))
+
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         item = event.item
         if not hasattr(item, "postData"):
             return
-        
+
         self.currentPost = item.postData
-        self.refreshCurrentPostWithReplies
-
-
-
-    def validPostTitle(self, title: str) -> tuple[bool, str]:
-        title = title.strip()
-        if title == "":
-            return False, "Title can't be empty."
-        if len(title) > 80:
-            return False, "Title must be at most 80 characters."
-        return True, ""
-
-    def validPostContent(self, content: str) -> tuple[bool, str]:
-        if content.strip() == "":
-            return False, "Content can't be empty."
-        if len(content) > 20000:
-            return False, "Content must be at most 20000 characters."
-        return True, ""
+        self.clearReplyBox()
+        self.refreshCurrentPostWithReplies()
 
     def createPost(self, title: str) -> None:
         title = title.strip()
@@ -189,9 +236,10 @@ class PostrApp(App):
 
         self.loadPosts()
         self.currentPost = created_post
+        self.clearReplyBox()
 
         viewer = self.query_one("#viewer", Markdown)
-        viewer.update(self.formatPostPreview(created_post))
+        viewer.update(self.formatPostPreview(created_post) + self.formatReplies([]))
 
         self.notify(f"Post '{title}' is created!", timeout=3)
 
@@ -200,8 +248,8 @@ class PostrApp(App):
             return
         if not self.ensureServerSelected():
             return
-        if not self.isCureentUserAuthor():
-            self.notify("You can only delete your own post", timeout=3)
+        if not self.isCurrentUserAuthor():
+            self.notify("You can only delete your own posts.", timeout=3)
             return
 
         deletedName = self.currentPost["title"]
@@ -225,6 +273,7 @@ class PostrApp(App):
 
             self.currentPost = None
             self.loadPosts()
+            self.clearReplyBox()
 
             view = self.query_one("#viewer", Markdown)
             view.update("# Welcome to Postr\n\nSelect a post from the left, or press **N** to create one.")
@@ -238,8 +287,8 @@ class PostrApp(App):
             return
         if not self.ensureServerSelected():
             return
-        if not self.isCureentUserAuthor():
-            self.notify("You can only edit your own post.", timeout=3)
+        if not self.isCurrentUserAuthor():
+            self.notify("You can only edit your own posts.", timeout=3)
             return
 
         postId = self.currentPost["id"]
@@ -271,7 +320,7 @@ class PostrApp(App):
                 response.raise_for_status()
                 updated_post = response.json()
             except requests.RequestException:
-                self.notify("Failed to save post to server.", timeout=3)
+                self.notify("Failed to edit post on server.", timeout=3)
                 return
 
             self.currentPost = {
@@ -282,10 +331,8 @@ class PostrApp(App):
                 "created_at": self.currentPost.get("created_at", "Unknown"),
             }
 
-            viewer = self.query_one("#viewer", Markdown)
-            viewer.update(self.formatPostPreview(self.currentPost))
-
             self.loadPosts()
+            self.refreshCurrentPostWithReplies()
             self.notify(f"Post '{oldTitle}' updated!", timeout=3)
 
         self.push_screen(EditPostScreen(oldTitle, oldContent), handleEditResult)
@@ -309,121 +356,20 @@ class PostrApp(App):
 
         self.push_screen(NewPostScreen(), handleResult)
 
-
-    def formatReplies(self, replies: list[dict]) -> str:
-        if not replies:
-            return "\n## Replies\n\nNo replies yet."
-        
-        reply_blocks = ["\n## Replies\n"]
-        for reply in replies:
-            reply_blocks.append(
-                f"### {reply['author']} — {reply['created_at']}\n\n{reply['content']}\n"
-            )
-        return "\n".join(reply_blocks)
-
-    def validReplyContent(self, content: str) -> tuple[bool, str]:
-        if content.strip() == "":
-            return False, "Reply can't be empty"
-        if len(content) > 5000:
-            return False, "Reply must be at most 5000 characters"
-        return True, ""
-    
-    def replyToPost(self) -> None:
-        if not self.ensurePostSelected("reply to"):
-            return
-        if not self.ensureServerSelected():
-            return
-        if not self.currentUser:
-            self.notify("Please log in first", timeout=2)
-            return
-        
-        postId = self.currentPost["id"]
-        postTitle = self.currentPost["title"]
-
-        def handleReplyResult(newReply: str | None) -> None:
-            if newReply is None:
-                self.notify("Reply is cancelled", timeout=2)
-                return
-            
-            ok, message = self.validReplyContent(newReply)
-            if not ok:
-                self.notify(message, timeout=3)
-                return
-
-            try:
-                response = requests.post(
-                    f"{self.serverUrl}/posts/{postId}/replies",
-                    json={
-                        "author": self.currentUser,
-                        "content": newReply,
-                    },
-                    timeout=5
-                )
-                response.raise_for_status()
-            except requests.RequestException:
-                self.notify("Failed to post reply", timeout=3)
-                return
-            
-            replies = []
-            try:
-                response = requests.get(f"{self.serverUrl}/posts/{postId}/replies", timeout=5)
-                response.raise_for_status()
-                replies = response.json()
-            except requests.RequestException:
-                self.notify("Reply posted, but failed to refresh replies.", timeout=3)
-
-            viewer = self.query_one("#viewer", Markdown)
-            viewer.update(self.formatPostPreview(self.currentPost) + self.formatReplies(replies))
-
-            self.notify("Reply posted!", timeout=3)
-
-        self.push_screen(ReplyScreen(postTitle), handleReplyResult)
-    
-    def isCureentUserAuthor(self) -> bool:
-        if self.currentPost is None or self.currentUser is None:
-            return False
-        return self.currentPost.get("author") == self.currentUser
-
     def action_new_post(self) -> None:
         self.newPost()
 
     def action_edit_post(self) -> None:
         self.editPost()
-    
-    def clearReplyBox(self) -> None:
-        reply_box = self.query_one("#replyTextArea", TextArea)
-        reply_box.text = ""
-
-    def reloadPosts(self) -> None:
-        self.loadPosts()
-        self.notify("Posts reloaded", timeout=2)
-
-    def action_reload_posts(self) -> None:
-        self.reloadPosts()
-
-    def escapeQuit(self) -> None:
-        if self.onceEscape:
-            self.exit()
-            return
-
-        self.onceEscape = True
-        self.notify("Press Esc again to quit", timeout=2)
-        self.set_timer(2, self.escapeReset)
-
-    def action_escape_quit(self) -> None:
-        self.escapeQuit()
 
     def action_delete_post(self) -> None:
         self.deletePost()
 
-    def escapeReset(self) -> None:
-        self.onceEscape = False
-
-    def action_noop(self) -> None:
-        pass
-    
     def action_reply_post(self) -> None:
-        self.replyToPost()
+        if not self.ensurePostSelected("reply to"):
+            return
+        reply_box = self.query_one("#replyTextArea", TextArea)
+        reply_box.focus()
 
     def action_submit_reply(self) -> None:
         if not self.ensurePostSelected("reply to"):
@@ -433,7 +379,7 @@ class PostrApp(App):
         if not self.currentUser:
             self.notify("Please login first", timeout=2)
             return
-        
+
         reply_box = self.query_one("#replyTextArea", TextArea)
         new_reply = reply_box.text
 
@@ -462,24 +408,30 @@ class PostrApp(App):
         self.refreshCurrentPostWithReplies()
         self.notify("Reply posted!", timeout=3)
 
+    def reloadPosts(self) -> None:
+        self.loadPosts()
+        self.notify("Posts reloaded", timeout=2)
 
-    def refreshCurrentPostWithReplies(self) -> None:
-        if self.currentPost is None or not self.serverUrl:
+    def action_reload_posts(self) -> None:
+        self.reloadPosts()
+
+    def escapeQuit(self) -> None:
+        if self.onceEscape:
+            self.exit()
             return
 
-        replies = []
-        try:
-            response = requests.get(
-                f"{self.serverUrl}/posts/{self.currentPost['id']}/replies",
-                timeout=5,
-            )
-            response.raise_for_status()
-            replies = response.json()
-        except requests.RequestException:
-            self.notify("Failed to load replies from server", timeout=3)
+        self.onceEscape = True
+        self.notify("Press Esc again to quit", timeout=2)
+        self.set_timer(2, self.escapeReset)
 
-        viewer = self.query_one("#viewer", Markdown)
-        viewer.update(self.formatPostPreview(self.currentPost) + self.formatReplies(replies))
+    def action_escape_quit(self) -> None:
+        self.escapeQuit()
+
+    def escapeReset(self) -> None:
+        self.onceEscape = False
+
+    def action_noop(self) -> None:
+        pass
 
 
 def main():
