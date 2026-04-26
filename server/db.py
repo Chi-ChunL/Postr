@@ -5,7 +5,7 @@ from pathlib import Path
 _VOLUME = Path("/data")
 DB_PATH = (_VOLUME / "postr.db") if _VOLUME.exists() else (Path(__file__).resolve().parent.parent / "postr.db")
 
-
+#Check
 @contextmanager
 def _db():
     """Context manager that yields a Row-aware cursor and auto-commits/closes."""
@@ -66,7 +66,7 @@ def createPost(title: str, author: str, content: str, created_at: str) -> int:
         )
         return cur.lastrowid
 
-
+#Update
 def updatePost(post_id: int, title: str, author: str, content: str) -> bool:
     with _db() as (_, cur):
         cur.execute(
