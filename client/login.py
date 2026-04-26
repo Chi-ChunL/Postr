@@ -1,16 +1,17 @@
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Center, Middle, Vertical
+from textual.containers import Center, Middle, Vertical, Horizontal
 from textual.events import Key
 from textual.screen import ModalScreen
-from textual.widgets import Label, Input, Checkbox
+from textual.widgets import Label, Input, Checkbox, Button
 
 from server.auth import registerUser, loginUser
 
 
 class LoginScreen(ModalScreen[dict | None]):
     BINDINGS = [
-        Binding("ctrl+r", "register", "Register"),
+        Binding("left", "previous_tab", "Previous Tab", show=False),
+        Binding("right", "next_tab", "Next Tab", show=False),
         Binding("escape", "cancel_login", "Cancel"),
     ]
 
@@ -18,39 +19,77 @@ class LoginScreen(ModalScreen[dict | None]):
         super().__init__()
         self.remembered_username = remembered_username
         self.remembered_password = remembered_password
+        self.mode = "login"
 
     def compose(self) -> ComposeResult:
         with Center():
             with Middle():
                 with Vertical(id="loginBox"):
-                    yield Label("Login to Postr", classes="popupTitle")
+                    yield Label("Postr Account", classes="popupTitle")
+
+                    with Horizontal(id="authTabs"):
+                        yield Label("Login", id="loginTab", classes="activeTab")
+                        yield Label("Register", id="registerTab", classes="inactiveTab")
+
                     yield Label(
-                        "Enter username and password. Press Enter to log in, or Ctrl+R to register.",
+                        "Use Left / Right arrow to switch tabs. Press Enter to submit.",
                         classes="popupHelp",
                     )
+
                     yield Input(
                         value=self.remembered_username,
                         placeholder="Username...",
                         id="loginUsernameInput",
                     )
+
                     yield Input(
                         value=self.remembered_password,
                         placeholder="Password...",
                         password=True,
                         id="loginPasswordInput",
                     )
+
                     yield Checkbox(
                         "Remember me",
                         value=bool(self.remembered_username),
                         id="rememberMeCheckbox",
                     )
+
+                    yield Button("Log in", id="authButton")
+
                     yield Label("", id="loginMessage", classes="popupHelp")
 
     def on_mount(self) -> None:
+        self.refreshTabs()
+
         if self.remembered_username:
             self.query_one("#loginPasswordInput", Input).focus()
         else:
             self.query_one("#loginUsernameInput", Input).focus()
+
+    def refreshTabs(self) -> None:
+        login_tab = self.query_one("#loginTab", Label)
+        register_tab = self.query_one("#registerTab", Label)
+        button = self.query_one("#authButton", Button)
+
+        if self.mode == "login":
+            login_tab.set_classes("activeTab")
+            register_tab.set_classes("inactiveTab")
+            button.label = "Log in"
+        else:
+            login_tab.set_classes("inactiveTab")
+            register_tab.set_classes("activeTab")
+            button.label = "Register"
+
+        self.setMessage("")
+
+    def action_next_tab(self) -> None:
+        self.mode = "register" if self.mode == "login" else "login"
+        self.refreshTabs()
+
+    def action_previous_tab(self) -> None:
+        self.mode = "register" if self.mode == "login" else "login"
+        self.refreshTabs()
 
     def on_key(self, event: Key) -> None:
         focused = self.app.focused
@@ -93,6 +132,12 @@ class LoginScreen(ModalScreen[dict | None]):
             return False, "Password must be at most 64 characters."
         return True, ""
 
+    def submitCurrentMode(self) -> None:
+        if self.mode == "login":
+            self.action_login()
+        else:
+            self.action_register()
+
     def action_login(self) -> None:
         username = self.getUsername()
         password = self.getPassword()
@@ -120,6 +165,7 @@ class LoginScreen(ModalScreen[dict | None]):
     def action_register(self) -> None:
         username = self.getUsername()
         password = self.getPassword()
+        remember_me = self.getRememberMe()
 
         ok, message = self.validUsername(username)
         if not ok:
@@ -131,13 +177,22 @@ class LoginScreen(ModalScreen[dict | None]):
             self.setMessage(message)
             return
 
-        if registerUser(username, password):
-            self.setMessage("Account created. Press Enter to log in.")
-        else:
+        if not registerUser(username, password):
             self.setMessage("That username already exists.")
+            return
+
+        self.dismiss({
+            "username": username,
+            "password": password,
+            "remember_me": remember_me,
+        })
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "authButton":
+            self.submitCurrentMode()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.submitCurrentMode()
 
     def action_cancel_login(self) -> None:
         self.dismiss(None)
-
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        self.action_login()

@@ -209,3 +209,24 @@ Checkbox:focus {
     background: transparent;
     border: none;
 }
+
+#authTabs {
+    height: auto;
+    margin-bottom: 1;
+}
+
+.activeTab {
+    color: #ffffff;
+    text-style: bold underline;
+    margin-right: 4;
+}
+
+.inactiveTab {
+    color: #777777;
+    margin-right: 4;
+}
+
+#authButton {
+    margin-top: 1;
+    width: 24;
+}
