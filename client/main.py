@@ -208,6 +208,9 @@ class PostrApp(App):
             return
         if not self.ensureServerSelected():
             return
+        if not self.isCureentUserAuthor():
+            self.notify("You can only delete your own post", timeout=3)
+            return
 
         deletedName = self.currentPost["title"]
         deletedId = self.currentPost["id"]
@@ -220,6 +223,7 @@ class PostrApp(App):
             try:
                 response = requests.delete(
                     f"{self.serverUrl}/posts/{deletedId}",
+                    json={"request_user": self.currentUser},
                     timeout=5,
                 )
                 response.raise_for_status()
@@ -241,6 +245,9 @@ class PostrApp(App):
         if not self.ensurePostSelected("edit"):
             return
         if not self.ensureServerSelected():
+            return
+        if not self.isCureentUserAuthor():
+            self.notify("You can only edit your own post.", timeout=3)
             return
 
         postId = self.currentPost["id"]
@@ -265,6 +272,7 @@ class PostrApp(App):
                         "title": oldTitle,
                         "author": oldAuthor,
                         "content": newContent,
+                        "request_user": self.currentUser,
                     },
                     timeout=5,
                 )
@@ -377,6 +385,11 @@ class PostrApp(App):
             self.notify("Reply posted!", timeout=3)
 
         self.push_screen(ReplyScreen(postTitle), handleReplyResult)
+    
+    def isCureentUserAuthor(self) -> bool:
+        if self.currentPost is None or self.currentUser is None:
+            return False
+        return self.currentPost.get("author") == self.currentUser
 
     def action_new_post(self) -> None:
         self.newPost()

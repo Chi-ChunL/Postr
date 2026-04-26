@@ -9,6 +9,7 @@ from server.db import (
     createRepliesTable,
     getReplies,
     createReply,
+    getPostById,
 )
 
 app = Flask(__name__)
@@ -73,6 +74,20 @@ def create_post():
 
 @app.delete("/posts/<int:post_id>")
 def deleted_post(post_id: int):
+
+    data = request.get_json(silent=True) or {}
+    request_user = str(data.get("request_user", "")).strip()
+
+    post = getPostById(post_id)
+    if post is None:
+        return jsonify({"error": "Post not found"}), 404
+    
+    if request_user == "":
+        return jsonify({"error": "Request user is required"}), 400
+    
+    if post["author"] != request_user:
+        return jsonify({"error": "You can only delete your own post"}), 403
+
     deleted = deletePost(post_id)
 
     if not deleted:
@@ -90,6 +105,18 @@ def update_post(post_id: int):
 
     if not data:
         return jsonify({"error": "Invalid JSON data"}), 400
+
+    request_user = str(data.get("request_user", "")).strip()
+
+    post = getPostById(post_id)
+    if post is None:
+        return jsonify({"error": "Post not found"}), 404
+
+    if request_user == "":
+        return jsonify({"error": "Request user is required"}), 400
+
+    if post["author"] != request_user:
+        return jsonify({"error": "You can only edit your own posts"}), 403
 
     title = str(data.get("title", "")).strip()
     author = str(data.get("author", "")).strip()
@@ -119,7 +146,7 @@ def update_post(post_id: int):
         "id": post_id,
         "title": title,
         "author": author,
-        "content": content,
+        "content": content
     }), 200
 
 

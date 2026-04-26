@@ -140,3 +140,24 @@ def createReply(post_id: int, author: str, content: str, created_at: str) -> int
     conn.close()
 
     return reply_id
+
+def getPostById(post_id: int):
+    conn = connectDB()
+    cursor = conn.cursor
+    conn.row_factory = sqlite3.Row
+
+    cursor.execute("""
+        SELECT id, title, author, content, created_at
+        FROM posts
+        WHERE id = ?
+    """, (post_id,))
+
+    row = cursor.fetchone()
+    conn.close()
+
+    if row is None:
+        return None
+    
+    return dict(row)
+
+
