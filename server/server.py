@@ -3,14 +3,13 @@ from flask import Flask, jsonify, request
 from server.db import (
     initDB,
     getAllPosts,
-    getPostById,
     createPost,
-    updatePost,
     deletePost,
+    updatePost,
     getReplies,
     createReply,
+    getPostById,
 )
-
 app = Flask(__name__)
 initDB()
 

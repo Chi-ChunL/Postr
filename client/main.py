@@ -26,11 +26,13 @@ class PostrApp(App):
         Binding("c", "reply_post", "Reply"),
         Binding("ctrl+s", "submit_reply", "Send Reply"),
         Binding("ctrl+q", "noop", show=False),
+        Binding("l", "logout", "Logout")
     ]
 
     def __init__(self):
         super().__init__()
         self._escape_armed = False
+        self._logout_armed = False
         self.currentPost: dict | None = None
         self.currentUser: str | None = None
         self.serverUrl: str | None = None
@@ -201,8 +203,9 @@ class PostrApp(App):
             self.query_one("#viewer", Markdown).update(
                 self._formatPost(post) + self._formatReplies(replies)
             )
-
+    
     def action_new_post(self) -> None:
+        self._clearArmedActions()
         if not self.currentUser:
             self.notify("Please log in first.", timeout=2)
             return
@@ -251,6 +254,7 @@ class PostrApp(App):
         self.notify(f"Post '{title}' created!", timeout=3)
 
     def action_edit_post(self) -> None:
+        self._clearArmedActions()
         if not self._requirePost("edit") or not self._requireServer() or not self._requireAuthor():
             return
 
@@ -313,6 +317,7 @@ class PostrApp(App):
         self.notify(f"Post '{title}' updated!", timeout=3)
 
     def action_delete_post(self) -> None:
+        self._clearArmedActions()
         if not self._requirePost("delete") or not self._requireServer() or not self._requireAuthor():
             return
 
@@ -359,6 +364,7 @@ class PostrApp(App):
         self.notify(f"Post '{title}' deleted!", timeout=3)
 
     def action_reply_post(self) -> None:
+        self._clearArmedActions()
         if not self._requirePost("reply to"):
             return
         self.query_one("#replyTextArea", TextArea).focus()
@@ -402,6 +408,46 @@ class PostrApp(App):
         self._clearReply()
         await self._fetchAndRenderViewer()
         self.notify("Reply posted!", timeout=3)
+
+    def _resetSession(self) -> None:
+        self.currentUser = None
+        self.currentPost = None
+        self._clearReply()
+        self.query_one("#currentUserLabel", Label).update("Not logged in")
+        self.query_one("#viewer", Markdown).update(WELCOME_MD)
+        post_list = self.query_one("#postList", ListView)
+        post_list.index = None
+    
+    def _showLoginScreen(self) -> None:
+        def on_login(username: str | None) -> None:
+            if not (isinstance(username, str) and username.strip()):
+                self.exit()
+                return
+            self.currentUser = username.strip()
+            self.query_one("#currentUserLabel", Label).update(f"Logged in as {self.currentUser}")
+            self.notify(f"Welcome, {self.currentUser}!", timeout=3)
+
+        self.push_screen(LoginScreen(), on_login)
+
+    def action_logout(self) -> None:
+        if not self.currentUser:
+            self.notify("You are not logged in", timeout=2)
+            return
+        if self._logout_armed:
+            old_user = self.currentUser
+            self._resetSession()
+            self.loadPosts()
+            self.notify(f"Logged out from {old_user}.", timeout=3)#
+            self._showLoginScreen()
+            return
+        
+        self._logout_armed = True
+        self.notify("Press L again to log out", timeout=2)
+        self.set_timer(2, lambda: setattr(self, "_logout_armed", False))
+
+    def _clearArmedActions(self) -> None:
+        self._escape_armed = False
+        self._logout_armed = False
 
     def action_reload_posts(self) -> None:
         self.loadPosts()
