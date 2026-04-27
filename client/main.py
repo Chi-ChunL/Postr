@@ -40,6 +40,7 @@ class PostrApp(App):
         self.currentReply: dict | None = None
         self.currentUser: str | None = None
         self.serverUrl: str | None = None
+        self.replyComposerVisible = False
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -58,7 +59,7 @@ class PostrApp(App):
                 yield Label("REPLIES", id="repliesTitle" ,classes="viewerTitle")
                 yield ListView(id="replyList")
 
-                with Vertical(id="replyPane"):
+                with Vertical(id="replyPane", classes="hidden"):
                     yield Label("WRITE REPLY",id="writeReplyTitle", classes="viewerTitle")
                     yield TextArea("", id="replyTextArea")
 
@@ -252,6 +253,7 @@ class PostrApp(App):
             self.currentPost = item.postData
             self.currentReply = None
             self._clearReply()
+            self._hideReplyComposer()
             self.run_worker(self._fetchAndRenderViewer(), exclusive=True)
             return
 
@@ -510,7 +512,7 @@ class PostrApp(App):
         if not self._requirePost("reply to"):
             return
 
-        self.query_one("#replyTextArea", TextArea).focus()
+        self.toggleReplyComposer()
 
     def action_submit_reply(self) -> None:
         self._clearArmedActions()
@@ -521,6 +523,10 @@ class PostrApp(App):
         if not self.currentUser:
             self.notify("Please log in first.", timeout=2)
             return
+        
+        if not self.replyComposerVisible:
+            self._showReplyComposer()
+            self.notify("Write your reply, then press Ctrl + S again to send.", timeout=3)
 
         content = self.query_one("#replyTextArea", TextArea).text
 
@@ -552,6 +558,7 @@ class PostrApp(App):
             return
 
         self._clearReply()
+        self._hideReplyComposer()
         await self._fetchAndRenderViewer()
         self.notify("Reply posted!", timeout=3)
 
@@ -566,6 +573,23 @@ class PostrApp(App):
 
         post_list = self.query_one("#postList", ListView)
         post_list.index = None
+    
+    def _showReplyComposer(self) -> None:
+        reply_pane = self.query_one("#replyPane", Vertical)
+        reply_pane.remove_class("hidden")
+        self.replyComposerVisible = True
+        self.query_one("#replyTextArea", TextArea).focus()
+
+    def _hideReplyComposer(self) -> None:
+        reply_pane = self.query_one("#replyPane", Vertical)
+        reply_pane.add_class("hidden")
+        self.replyComposerVisible = False
+
+    def toggleReplyComposer(self) -> None:
+        if self.replyComposerVisible:
+            self._hideReplyComposer()
+        else:
+            self._showReplyComposer()
 
     def _showLoginScreen(self) -> None:
         self.push_screen(LoginScreen(), self._handleLoginResult)
@@ -594,10 +618,14 @@ class PostrApp(App):
         self.notify("Posts reloaded.", timeout=2)
 
     def action_escape_quit(self) -> None:
+        if self.replyComposerVisible:
+            self._hideReplyComposer()
+            return
+        
         if self._escape_armed:
             self.exit()
             return
-
+          
         self._escape_armed = True
         self.notify("Press Esc again to quit.", timeout=2)
         self.set_timer(2, lambda: setattr(self, "_escape_armed", False))
