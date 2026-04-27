@@ -55,16 +55,17 @@ class PostrApp(App):
                 yield Label("PREVIEW", classes="viewerTitle")
                 yield Markdown(WELCOME_MD, id="viewer")
 
-                yield Label("REPLIES", classes="viewerTitle")
+                yield Label("REPLIES", id="repliesTitle" ,classes="viewerTitle")
                 yield ListView(id="replyList")
 
                 with Vertical(id="replyPane"):
-                    yield Label("WRITE REPLY", classes="viewerTitle")
+                    yield Label("WRITE REPLY",id="writeReplyTitle", classes="viewerTitle")
                     yield TextArea("", id="replyTextArea")
 
         yield Footer()
 
     def on_mount(self) -> None:
+
         createUserTable()
         config = loadConfig()
 
@@ -122,11 +123,15 @@ class PostrApp(App):
             deletePassword(username)
 
     def _formatPost(self, post: dict) -> str:
+        content = post["content"]
+
         return (
             f"# {post['title']}\n\n"
             f"**Author:** {post['author']}  \n"
             f"**Created:** {post['created_at']}\n\n"
-            f"{post['content']}\n"
+            "```text\n"
+            f"{content}\n"
+            "```"
         )
 
     def _renderReplyList(self, replies: list[dict]) -> None:

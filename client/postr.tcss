@@ -73,6 +73,7 @@ Footer {
     border: round #222222;
     padding: 1 2;
     color: #cccccc;
+    overflow-y: auto;
 }
 
 #newPostBox,
@@ -107,6 +108,7 @@ Footer {
     background: #111111;
     color: #cccccc;
     border: round #2a2a2a;
+    overflow-y: auto;
 }
 
 #loginUsernameInput,
@@ -163,7 +165,7 @@ Input.-focus {
 }
 
 #replyPane {
-    height: 10;
+    height: 8;
     border-top: solid #2e2e2e;
     padding-top: 1;
 }
@@ -277,7 +279,7 @@ Checkbox:focus {
 }
 
 #replyList {
-    height: 10;
+    height: 8;
     margin-bottom: 1;
     background: #111111;
     border: round #222222;
