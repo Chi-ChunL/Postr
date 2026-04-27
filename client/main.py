@@ -26,9 +26,10 @@ class PostrApp(App):
         Binding("e", "edit_post", "Edit Post"),
         Binding("d", "delete_post", "Delete Post"),
         Binding("c", "reply_post", "Reply"),
+        Binding("x", "delete_reply", "Delete Reply"),
         Binding("ctrl+s", "submit_reply", "Send Reply"),
+        Binding("l", "logout", "Logout"),
         Binding("ctrl+q", "noop", show=False),
-        Binding("l", "logout", "Logout")
     ]
 
     def __init__(self):
@@ -36,6 +37,7 @@ class PostrApp(App):
         self._escape_armed = False
         self._logout_armed = False
         self.currentPost: dict | None = None
+        self.currentReply: dict | None = None
         self.currentUser: str | None = None
         self.serverUrl: str | None = None
 
@@ -53,8 +55,11 @@ class PostrApp(App):
                 yield Label("PREVIEW", classes="viewerTitle")
                 yield Markdown(WELCOME_MD, id="viewer")
 
+                yield Label("REPLIES", classes="viewerTitle")
+                yield ListView(id="replyList")
+
                 with Vertical(id="replyPane"):
-                    yield Label("REPLY", classes="viewerTitle")
+                    yield Label("WRITE REPLY", classes="viewerTitle")
                     yield TextArea("", id="replyTextArea")
 
         yield Footer()
@@ -76,44 +81,45 @@ class PostrApp(App):
             self.serverUrl = url
             self.notify(f"Connected to {url}", timeout=3)
             self.loadPosts()
+
             self.push_screen(
                 LoginScreen(
                     remembered_username=remembered_username,
                     remembered_password=remembered_password or "",
                 ),
-                on_login,
+                self._handleLoginResult,
             )
-
-        def on_login(result: dict | None) -> None:
-            if not result:
-                self.exit()
-                return
-
-            username = result["username"]
-            password = result["password"]
-            remember = result["remember_me"]
-
-            self.currentUser = username
-            self.query_one("#currentUserLabel", Label).update(f"Logged in as {self.currentUser}")
-            self.notify(f"Welcome, {self.currentUser}!", timeout=3)
-
-            if remember:
-                saveConfig({
-                    "username": username,
-                    "server_url": self.serverUrl,
-                    "remember_me": True,
-                })
-                savePassword(username, password)
-            else:
-                saveConfig({
-                    "username": "",
-                    "server_url": self.serverUrl,
-                    "remember_me": False,
-                })
-                deletePassword(username)
 
         initial_server = remembered_server if remembered_server else None
         self.push_screen(ServerSelectScreen(initial_server=initial_server), on_server)
+
+    def _handleLoginResult(self, result: dict | None) -> None:
+        if not result:
+            self.exit()
+            return
+
+        username = result["username"]
+        password = result["password"]
+        remember = result["remember_me"]
+
+        self.currentUser = username
+        self.query_one("#currentUserLabel", Label).update(f"Logged in as {self.currentUser}")
+        self.notify(f"Welcome, {self.currentUser}!", timeout=3)
+
+        if remember:
+            saveConfig({
+                "username": username,
+                "server_url": self.serverUrl,
+                "remember_me": True,
+            })
+            savePassword(username, password)
+        else:
+            saveConfig({
+                "username": "",
+                "server_url": self.serverUrl,
+                "remember_me": False,
+            })
+            deletePassword(username)
 
     def _formatPost(self, post: dict) -> str:
         return (
@@ -123,27 +129,44 @@ class PostrApp(App):
             f"{post['content']}\n"
         )
 
-    def _formatReplies(self, replies: list[dict]) -> str:
-        if not replies:
-            return "\n## Replies\n\nNo replies yet."
+    def _renderReplyList(self, replies: list[dict]) -> None:
+        reply_list = self.query_one("#replyList", ListView)
+        reply_list.clear()
+        self.currentReply = None
 
-        blocks = ["\n## Replies\n"]
-        for r in replies:
-            blocks.append(f"### {r['author']} — {r['created_at']}\n\n{r['content']}\n")
-        return "\n".join(blocks)
+        if not replies:
+            reply_list.append(ListItem(Label("No replies yet.", classes="postItem")))
+            return
+
+        for reply in replies:
+            preview = reply["content"].replace("\n", " ")
+
+            if len(preview) > 70:
+                preview = preview[:70] + "..."
+
+            label = f"{reply['author']} - {reply['created_at']} - {preview}"
+
+            item = ListItem(Label(label, classes="postItem"))
+            item.replyData = reply
+            reply_list.append(item)
 
     def _validate(self, value: str, kind: str) -> tuple[bool, str]:
         value = value.strip()
+
         limits = {
-            "title": (80, "Title"),
-            "content": (20000, "Post content"),
-            "reply": (5000, "Reply"),
+            "title": ("Title", 80),
+            "content": ("Post content", 20000),
+            "reply": ("Reply", 5000),
         }
-        max_len, label = limits[kind]
+
+        label, max_len = limits[kind]
+
         if not value:
             return False, f"{label} can't be empty."
+
         if len(value) > max_len:
             return False, f"{label} must be at most {max_len} characters."
+
         return True, ""
 
     def _requirePost(self, action: str) -> bool:
@@ -161,15 +184,29 @@ class PostrApp(App):
     def _requireAuthor(self) -> bool:
         if not self.currentPost or not self.currentUser:
             return False
+
         if self.currentPost.get("author") != self.currentUser:
             self.notify("You can only do that to your own posts.", timeout=3)
             return False
+
         return True
 
     def _clearReply(self) -> None:
         self.query_one("#replyTextArea", TextArea).text = ""
 
+    def _clearReplyList(self) -> None:
+        reply_list = self.query_one("#replyList", ListView)
+        reply_list.clear()
+        self.currentReply = None
+
+    def _clearArmedActions(self) -> None:
+        self._escape_armed = False
+        self._logout_armed = False
+
     def loadPosts(self) -> None:
+        if not self.serverUrl:
+            return
+
         self.run_worker(self._fetchAndRenderPosts(), exclusive=True)
 
     async def _fetchAndRenderPosts(self) -> None:
@@ -205,15 +242,21 @@ class PostrApp(App):
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         item = event.item
-        if not hasattr(item, "postData"):
+
+        if hasattr(item, "postData"):
+            self.currentPost = item.postData
+            self.currentReply = None
+            self._clearReply()
+            self.run_worker(self._fetchAndRenderViewer(), exclusive=True)
             return
 
-        self.currentPost = item.postData
-        self._clearReply()
-        self.run_worker(self._fetchAndRenderViewer(), exclusive=True)
+        if hasattr(item, "replyData"):
+            self.currentReply = item.replyData
+            self.notify("Reply selected. Press X to delete it.", timeout=2)
+            return
 
     async def _fetchAndRenderViewer(self) -> None:
-        if self.currentPost is None:
+        if self.currentPost is None or not self.serverUrl:
             return
 
         worker = get_current_worker()
@@ -233,13 +276,15 @@ class PostrApp(App):
                 self.notify("Failed to load replies.", timeout=3)
             replies = []
 
-        if not worker.is_cancelled:
-            self.query_one("#viewer", Markdown).update(
-                self._formatPost(post) + self._formatReplies(replies)
-            )
-    
+        if worker.is_cancelled:
+            return
+
+        self.query_one("#viewer", Markdown).update(self._formatPost(post))
+        self._renderReplyList(replies)
+
     def action_new_post(self) -> None:
         self._clearArmedActions()
+
         if not self.currentUser:
             self.notify("Please log in first.", timeout=2)
             return
@@ -289,6 +334,7 @@ class PostrApp(App):
 
     def action_edit_post(self) -> None:
         self._clearArmedActions()
+
         if not self._requirePost("edit") or not self._requireServer() or not self._requireAuthor():
             return
 
@@ -352,6 +398,7 @@ class PostrApp(App):
 
     def action_delete_post(self) -> None:
         self._clearArmedActions()
+
         if not self._requirePost("delete") or not self._requireServer() or not self._requireAuthor():
             return
 
@@ -392,18 +439,77 @@ class PostrApp(App):
             return
 
         self.currentPost = None
+        self.currentReply = None
         self.loadPosts()
         self._clearReply()
+        self._clearReplyList()
         self.query_one("#viewer", Markdown).update(WELCOME_MD)
         self.notify(f"Post '{title}' deleted!", timeout=3)
 
+    def action_delete_reply(self) -> None:
+        self._clearArmedActions()
+
+        if not self._requirePost("delete a reply from"):
+            return
+
+        if not self._requireServer():
+            return
+
+        if self.currentReply is None:
+            self.notify("No reply selected to delete.", timeout=2)
+            return
+
+        if not self.currentUser:
+            self.notify("Please log in first.", timeout=2)
+            return
+
+        if self.currentReply.get("author") != self.currentUser:
+            self.notify("You can only delete your own replies.", timeout=3)
+            return
+
+        reply_id = self.currentReply["id"]
+        self.run_worker(self._deleteReply(reply_id), exclusive=True)
+
+    async def _deleteReply(self, reply_id: int) -> None:
+        worker = get_current_worker()
+
+        try:
+            response = await asyncio.to_thread(
+                lambda: requests.delete(
+                    f"{self.serverUrl}/replies/{reply_id}",
+                    json={"request_user": self.currentUser},
+                    headers={"X-Postr-User": self.currentUser or ""},
+                    timeout=TIMEOUT,
+                )
+            )
+            response.raise_for_status()
+
+        except requests.RequestException as e:
+            if not worker.is_cancelled:
+                error_text = ""
+                if getattr(e, "response", None) is not None:
+                    error_text = e.response.text
+                self.notify(f"Failed to delete reply: {error_text or e}", timeout=5)
+            return
+
+        if worker.is_cancelled:
+            return
+
+        self.currentReply = None
+        await self._fetchAndRenderViewer()
+        self.notify("Reply deleted.", timeout=3)
+
     def action_reply_post(self) -> None:
         self._clearArmedActions()
+
         if not self._requirePost("reply to"):
             return
+
         self.query_one("#replyTextArea", TextArea).focus()
 
     def action_submit_reply(self) -> None:
+        self._clearArmedActions()
+
         if not self._requirePost("reply to") or not self._requireServer():
             return
 
@@ -412,6 +518,7 @@ class PostrApp(App):
             return
 
         content = self.query_one("#replyTextArea", TextArea).text
+
         ok, msg = self._validate(content, "reply")
         if not ok:
             self.notify(msg, timeout=3)
@@ -446,44 +553,38 @@ class PostrApp(App):
     def _resetSession(self) -> None:
         self.currentUser = None
         self.currentPost = None
+        self.currentReply = None
         self._clearReply()
+        self._clearReplyList()
         self.query_one("#currentUserLabel", Label).update("Not logged in")
         self.query_one("#viewer", Markdown).update(WELCOME_MD)
+
         post_list = self.query_one("#postList", ListView)
         post_list.index = None
-    
-    def _showLoginScreen(self) -> None:
-        def on_login(username: str | None) -> None:
-            if not (isinstance(username, str) and username.strip()):
-                self.exit()
-                return
-            self.currentUser = username.strip()
-            self.query_one("#currentUserLabel", Label).update(f"Logged in as {self.currentUser}")
-            self.notify(f"Welcome, {self.currentUser}!", timeout=3)
 
-        self.push_screen(LoginScreen(), on_login)
+    def _showLoginScreen(self) -> None:
+        self.push_screen(LoginScreen(), self._handleLoginResult)
 
     def action_logout(self) -> None:
         if not self.currentUser:
-            self.notify("You are not logged in", timeout=2)
+            self.notify("You are not logged in.", timeout=2)
             return
+
         if self._logout_armed:
             old_user = self.currentUser
+            self._logout_armed = False
             self._resetSession()
             self.loadPosts()
-            self.notify(f"Logged out from {old_user}.", timeout=3)#
+            self.notify(f"Logged out from {old_user}.", timeout=3)
             self._showLoginScreen()
             return
-        
+
         self._logout_armed = True
-        self.notify("Press L again to log out", timeout=2)
+        self.notify("Press L again to log out.", timeout=2)
         self.set_timer(2, lambda: setattr(self, "_logout_armed", False))
 
-    def _clearArmedActions(self) -> None:
-        self._escape_armed = False
-        self._logout_armed = False
-
     def action_reload_posts(self) -> None:
+        self._clearArmedActions()
         self.loadPosts()
         self.notify("Posts reloaded.", timeout=2)
 

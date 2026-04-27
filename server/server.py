@@ -9,6 +9,7 @@ from server.db import (
     getReplies,
     createReply,
     getPostById,
+    deleteReply,
 )
 app = Flask(__name__)
 initDB()
@@ -47,7 +48,7 @@ def _err(msg: str, status: int):
     return jsonify({"error": msg}), status
 
 
-# ── Routes ─────────────────────────────────────────────────────────────────
+#Routes 
 
 @app.get("/")
 def home():
@@ -101,6 +102,36 @@ def delete_post(post_id: int):
     deletePost(post_id)
     return jsonify({"message": "Post deleted successfully", "id": post_id})
 
+@app.delete("/posts/<int:reply_id>")
+def delete_reply(reply_id: int):
+    data = request.get_json(silent=True) or {}
+
+    request_user = (
+        str(data.get("request_user", "")).strip()
+        or str(request.args.get("request_user", "")).strip()
+        or str(request.headers.get("X-Postr-User", "")).strip()
+    )
+
+    reply = getReplies(reply_id)
+
+    if reply is None:
+        return jsonify({"error": "Reply not found"}), 404
+    
+    if request_user == "":
+        return jsonify({"error": "Request user is required"}),400
+    
+    if reply["author"] != request_user:
+        return jsonify({"error": "You can only delete your own replies"}), 403
+    
+    deleted = deleteReply(reply_id)
+
+    if not deleted:
+        return jsonify({"error": "Reply not found"}), 404
+    
+    return jsonify ({
+        "message": "Reply deleted successfully",
+        "id": reply_id,
+    }), 200
 
 @app.put("/posts/<int:post_id>")
 def update_post(post_id: int):

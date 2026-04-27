@@ -77,12 +77,20 @@ Footer {
 
 #newPostBox,
 #deletePostBox,
-#loginBox {
+#serverSelectBox {
     width: 64;
     height: auto;
     background: #1a1a1a;
     border: round #2e2e2e;
     padding: 1 2 2 2;
+}
+
+#loginBox {
+    width: 76;
+    height: auto;
+    background: #1a1a1a;
+    border: round #2e2e2e;
+    padding: 2 3;
 }
 
 #editPostBox {
@@ -120,13 +128,13 @@ Footer {
     outline: none;
 }
 
-Input.-focus {
-    border: round #555555;
+Input {
+    border: round #333333;
     outline: none;
 }
 
-Input {
-    border: round #333333;
+Input.-focus {
+    border: round #555555;
     outline: none;
 }
 
@@ -142,16 +150,8 @@ Input {
 }
 
 .popupHelp {
-    color: #555555;
+    color: #888888;
     margin-top: 1;
-}
-
-#serverSelectBox {
-    width: 64;
-    height: auto;
-    background: #1a1a1a;
-    border: round #2e2e2e;
-    padding: 1 2 2 2;
 }
 
 #replyBox {
@@ -162,18 +162,6 @@ Input {
     padding: 1 2;
 }
 
-#replyTextArea {
-    height: 1fr;
-    margin-top: 1;
-    background: #111111;
-    color: #cccccc;
-    border: round #2a2a2a;
-}
-
-#viewer {
-    height: 1fr;
-}
-
 #replyPane {
     height: 10;
     border-top: solid #2e2e2e;
@@ -182,13 +170,84 @@ Input {
 
 #replyTextArea {
     height: 1fr;
+    margin-top: 1;
     background: #111111;
     color: #cccccc;
     border: round #2a2a2a;
 }
 
+#authTabs {
+    height: 3;
+    width: 100%;
+    margin-top: 1;
+    margin-bottom: 1;
+}
+
+.authTab {
+    width: 14;
+    height: 1;
+    margin-right: 2;
+    padding: 0 1;
+    border: none;
+    background: transparent;
+    color: #777777;
+    text-style: none;
+}
+
+.authTab:hover {
+    color: #ffffff;
+    background: transparent;
+    text-style: underline;
+}
+
+.activeTab {
+    color: #ffffff;
+    text-style: bold underline;
+    background: transparent;
+}
+
+.inactiveTab {
+    color: #777777;
+    text-style: none;
+    background: transparent;
+}
+
+#loginTab:focus, 
+#registerTab:focus {
+    background: transparent;
+    border: none;
+    text-style: none;
+}
+
+#loginTab.activeTab,
+#registerTab.activeTab {
+    color: #ffffff;
+    text-style: bold underline;
+}
+
+#loginTab.inactiveTab,
+#registerTab.inactiveTab {
+    color: #777777;
+    text-style: none;
+}
+
+#authButton {
+    width: 22;
+    height: 3;
+    margin-top: 1;
+    background: #222222;
+    color: #ffffff;
+    border: round #333333;
+}
+
+#authButton:focus {
+    background: #2a2a2a;
+    border: round #555555;
+}
+
 Checkbox {
     background: transparent;
+    border: none;
     color: #aaaaaa;
     margin-top: 1;
     width: auto;
@@ -198,35 +257,41 @@ Checkbox:focus {
     background: transparent;
     color: #ffffff;
     text-style: bold;
+    border: none;
 }
 
 #rememberMeCheckbox {
+    margin-top: 1;
+    width: 28;
+    height: 1;
     background: transparent;
+    color: #aaaaaa;
     border: none;
 }
 
 #rememberMeCheckbox:focus {
     background: transparent;
+    color: #ffffff;
+    text-style: bold;
     border: none;
 }
 
-#authTabs {
-    height: auto;
+#replyList {
+    height: 10;
     margin-bottom: 1;
+    background: #111111;
+    border: round #222222;
 }
 
-.activeTab {
+#replyList ListItem {
+    color: #cccccc;
+}
+
+#replyList ListItem:hover {
+    background: #1f1f1f;
+}
+
+#replyList ListItem.-highlight {
+    background: #2a2a2a;
     color: #ffffff;
-    text-style: bold underline;
-    margin-right: 4;
-}
-
-.inactiveTab {
-    color: #777777;
-    margin-right: 4;
-}
-
-#authButton {
-    margin-top: 1;
-    width: 24;
 }

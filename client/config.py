@@ -20,4 +20,4 @@ def saveConfig(data: dict) -> None:
 
 def clearConfig() -> None:
     if CONFIG_PATH.exists():
-        CONFIG_PATH.unlink
+        CONFIG_PATH.unlink()

@@ -6,7 +6,7 @@ def savePassword(username:str, password: str) -> None:
     keyring.set_password(SERVICE_NAME, username, password)
 
 def loadPassword(username: str) -> str | None:
-    return keyring.get_password(SERVICE_NAME, username)
+    return keyring.get_password(SERVICE_NAME, username) or ""
 
 def deletePassword(username: str) -> None:
     try:

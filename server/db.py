@@ -11,7 +11,6 @@ if DATABASE_URL:
     import psycopg2
     import psycopg2.extras
 
-
     @contextmanager
     def _db():
         conn = psycopg2.connect(DATABASE_URL)
@@ -25,7 +24,6 @@ if DATABASE_URL:
         finally:
             cur.close()
             conn.close()
-
 
     def initDB() -> None:
         with _db() as (_, cur):
@@ -48,12 +46,10 @@ if DATABASE_URL:
                 )
             """)
 
-
     def getAllPosts() -> list[dict]:
         with _db() as (_, cur):
             cur.execute("SELECT id, title, author, content, created_at FROM posts ORDER BY id DESC")
             return [dict(row) for row in cur.fetchall()]
-
 
     def getPostById(post_id: int) -> dict | None:
         with _db() as (_, cur):
@@ -64,7 +60,6 @@ if DATABASE_URL:
             row = cur.fetchone()
             return dict(row) if row else None
 
-
     def createPost(title: str, author: str, content: str, created_at: str) -> int:
         with _db() as (_, cur):
             cur.execute(
@@ -72,7 +67,6 @@ if DATABASE_URL:
                 (title, author, content, created_at),
             )
             return cur.fetchone()["id"]
-
 
     def updatePost(post_id: int, title: str, author: str, content: str) -> bool:
         with _db() as (_, cur):
@@ -82,12 +76,10 @@ if DATABASE_URL:
             )
             return cur.rowcount > 0
 
-
     def deletePost(post_id: int) -> bool:
         with _db() as (_, cur):
             cur.execute("DELETE FROM posts WHERE id = %s", (post_id,))
             return cur.rowcount > 0
-
 
     def getReplies(post_id: int) -> list[dict]:
         with _db() as (_, cur):
@@ -97,6 +89,14 @@ if DATABASE_URL:
             )
             return [dict(row) for row in cur.fetchall()]
 
+    def getReplyById(reply_id: int) -> dict | None:
+        with _db() as (_, cur):
+            cur.execute(
+                "SELECT id, post_id, author, content, created_at FROM replies WHERE id = %s",
+                (reply_id,),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
 
     def createReply(post_id: int, author: str, content: str, created_at: str) -> int:
         with _db() as (_, cur):
@@ -105,6 +105,11 @@ if DATABASE_URL:
                 (post_id, author, content, created_at),
             )
             return cur.fetchone()["id"]
+
+    def deleteReply(reply_id: int) -> bool:
+        with _db() as (_, cur):
+            cur.execute("DELETE FROM replies WHERE id = %s", (reply_id,))
+            return cur.rowcount > 0
 
 else:
     @contextmanager
@@ -121,7 +126,6 @@ else:
         finally:
             cur.close()
             conn.close()
-
 
     def initDB() -> None:
         with _db() as (_, cur):
@@ -160,8 +164,7 @@ else:
             )
             row = cur.fetchone()
             return dict(row) if row else None
-
-
+    
     def createPost(title: str, author: str, content: str, created_at: str) -> int:
         with _db() as (_, cur):
             cur.execute(
@@ -194,6 +197,14 @@ else:
             )
             return [dict(row) for row in cur.fetchall()]
 
+    def getReplyById(reply_id: int) -> dict | None:
+        with _db() as (_, cur):
+            cur.execute(
+                "SELECT id, post_id, author, content, created_at FROM replies WHERE id = ?",
+                (reply_id,),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
 
     def createReply(post_id: int, author: str, content: str, created_at: str) -> int:
         with _db() as (_, cur):
@@ -202,3 +213,8 @@ else:
                 (post_id, author, content, created_at),
             )
             return cur.lastrowid
+
+    def deleteReply(reply_id: int) -> bool:
+        with _db() as (_, cur):
+            cur.execute("DELETE FROM replies WHERE id = ?", (reply_id,))
+            return cur.rowcount > 0

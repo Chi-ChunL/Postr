@@ -28,11 +28,11 @@ class LoginScreen(ModalScreen[dict | None]):
                     yield Label("Postr Account", classes="popupTitle")
 
                     with Horizontal(id="authTabs"):
-                        yield Label("Login", id="loginTab", classes="activeTab")
-                        yield Label("Register", id="registerTab", classes="inactiveTab")
+                        yield Button("Login", id="loginTab", classes="authTab activeTab")
+                        yield Button("Register", id="registerTab", classes="authTab inactiveTab")
 
                     yield Label(
-                        "Use Left / Right arrow to switch tabs. Press Enter to submit.",
+                        "Left/Right: switch tabs. Enter: submit.",
                         classes="popupHelp",
                     )
 
@@ -68,9 +68,12 @@ class LoginScreen(ModalScreen[dict | None]):
             self.query_one("#loginUsernameInput", Input).focus()
 
     def refreshTabs(self) -> None:
-        login_tab = self.query_one("#loginTab", Label)
-        register_tab = self.query_one("#registerTab", Label)
+        login_tab = self.query_one("#loginTab", Button)
+        register_tab = self.query_one("#registerTab", Button)
         button = self.query_one("#authButton", Button)
+
+        login_tab.remove_class("activeTab", "inactiveTab")
+        register_tab.remove_class("activeTab", "inactiveTab")
 
         if self.mode == "login":
             login_tab.set_classes("activeTab")
@@ -188,6 +191,16 @@ class LoginScreen(ModalScreen[dict | None]):
         })
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "loginTab":
+            self.mode = "login"
+            self.refreshTabs()
+            return
+
+        if event.button.id == "registerTab":
+            self.mode = "register"
+            self.refreshTabs()
+            return
+
         if event.button.id == "authButton":
             self.submitCurrentMode()
 
