@@ -429,7 +429,7 @@ class PostrApp(App):
                 self.notify("Deletion cancelled.", timeout=2)
                 return
 
-            self.run_worker(self._deletePost(post_id, title), exclusive=True)
+            self.run_worker(self._deletePost(post_id, title))
 
         self.push_screen(DeletePostScreen(title), on_confirm)
 
@@ -474,21 +474,22 @@ class PostrApp(App):
             )
             response.raise_for_status()
             posts = response.json()
+
+            post_list = self.query_one("#postList", ListView)
+            post_list.clear()
+            post_list.index = None
+
+            if not posts:
+                post_list.append(ListItem(Label("No posts yet. Press N to create one!", classes="postItem")))
+            else:
+                for post in posts:
+                    item = ListItem(Label(post["title"], classes="postItem"))
+                    item.postData = post
+                    post_list.append(item)
         except requests.RequestException:
             self.notify("Deleted, but failed to refresh post list.", timeout=3)
             return
 
-        post_list = self.query_one("#postList", ListView)
-        post_list.clear()
-        post_list.index = None
-
-        if not posts:
-            post_list.append(ListItem(Label("No posts yet. Press N to create one!", classes="postItem")))
-        else:
-            for post in posts:
-                item = ListItem(Label(post["title"], classes="postItem"))
-                item.postData = post
-                post_list.append(item)
 
         self.notify(f"Post '{title}' deleted!", timeout=3)
 
