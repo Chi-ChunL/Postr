@@ -157,7 +157,7 @@ def update_post(post_id: int):
     if post is None:
         return _err("Post not found", 404)
 
-    if post["author"] != request_user:
+    if post["author"] != request_user and not _is_admin_request():
         return _err("You can only edit your own posts", 403)
 
     title = str(data.get("title", "")).strip()

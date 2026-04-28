@@ -49,5 +49,11 @@ logs/
 .DS_Store
 Thumbs.db
 
+# Local owner/admin file
+owner.json
+.owner.json
+postr_owner.json
+.postr_owner.json
+
 # Railway local files
 .railway/

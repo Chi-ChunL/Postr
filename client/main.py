@@ -11,7 +11,9 @@ from client.credentials import loadPassword, savePassword, deletePassword
 from client.features import NewPostScreen, DeletePostScreen, EditPostScreen
 from client.login import LoginScreen
 from client.serverSelect import ServerSelectScreen
+from client.owner import loadAdminKey, hasAdminKey
 from server.auth import createUserTable
+
 
 WELCOME_MD = "# Welcome to Postr\n\nSelect a post from the left, or press **N** to create one."
 TIMEOUT = 5
@@ -188,6 +190,9 @@ class PostrApp(App):
         return True
 
     def _requireAuthor(self) -> bool:
+        if self._isAdmin():
+            return True
+
         if not self.currentPost or not self.currentUser:
             return False
 
@@ -381,7 +386,10 @@ class PostrApp(App):
                         "content": content,
                         "request_user": self.currentUser,
                     },
-                    headers={"X-Postr-User": self.currentUser or ""},
+                    headers={
+                            "X-Postr-User": self.currentUser or "",
+                            **self._adminHeaders(),
+                        },
                     timeout=TIMEOUT,
                 )
             )
@@ -429,7 +437,10 @@ class PostrApp(App):
                 lambda: requests.delete(
                     f"{self.serverUrl}/posts/{post_id}",
                     json={"request_user": self.currentUser},
-                    headers={"X-Postr-User": self.currentUser or ""},
+                    headers={
+                        "X-Postr-User": self.currentUser or "",
+                        **self._adminHeaders(),
+                        },
                     timeout=TIMEOUT,
                 )
             )
@@ -485,7 +496,10 @@ class PostrApp(App):
                 lambda: requests.delete(
                     f"{self.serverUrl}/replies/{reply_id}",
                     json={"request_user": self.currentUser},
-                    headers={"X-Postr-User": self.currentUser or ""},
+                    headers={
+                             "X-Postr-User": self.currentUser or "",
+                            **self._adminHeaders(),
+                            },
                     timeout=TIMEOUT,
                 )
             )
@@ -632,6 +646,15 @@ class PostrApp(App):
 
     def action_noop(self) -> None:
         pass
+
+    def _isAdmin(self) -> bool:
+        return hasAdminKey()
+    
+    def _adminHeaders(self) -> dict:
+        admin_key = loadAdminKey()
+        if not admin_key:
+            return{}
+        return {"X-Postr-Admin-Key": admin_key}
 
 
 def main():
