@@ -481,7 +481,7 @@ class PostrApp(App):
             self.notify("Please log in first.", timeout=2)
             return
 
-        if self.currentReply.get("author") != self.currentUser:
+        if self.currentReply.get("author") != self.currentUser and not self._isAdmin():
             self.notify("You can only delete your own replies.", timeout=3)
             return
 
@@ -541,7 +541,8 @@ class PostrApp(App):
         if not self.replyComposerVisible:
             self._showReplyComposer()
             self.notify("Write your reply, then press Ctrl + S again to send.", timeout=3)
-
+            return
+        
         content = self.query_one("#replyTextArea", TextArea).text
 
         ok, msg = self._validate(content, "reply")
