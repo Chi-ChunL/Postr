@@ -1,22 +1,25 @@
 [build-system]
-requires = ["setuptools>=61.2"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "postr-tui"
-version = "0.1.0"
-description = "A terminal blog/forum client built with Textual"
+version = "0.1.1"
+description = "A terminal-based blog/forum client built with Python and Textual"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "textual",
+    "flask",
     "requests",
+    "textual",
     "bcrypt",
-    "flask"
+    "psycopg2-binary",
+    "gunicorn",
+    "keyring",
 ]
 
 [project.scripts]
 postr-tui = "client.main:main"
 
-[tool.setuptools]
-packages = ["client", "server"]
+[tool.setuptools.package-data]
+client = ["*.tcss"]
