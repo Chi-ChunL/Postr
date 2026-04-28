@@ -107,8 +107,6 @@ class PostrApp(App):
         remember = result["remember_me"]
 
         self.currentUser = username
-        self.query_one("#currentUserLabel", Label).update(self._currentUserDisplay())
-        self.notify(f"Welcome, {self.currentUser}!", timeout=3)
 
         if remember:
             saveConfig({
@@ -124,6 +122,11 @@ class PostrApp(App):
                 "remember_me": False,
             })
             deletePassword(username)
+
+        user_label = self.query_one("#currentUserLabel", Label)
+        user_label.update(self._currentUserDisplay())
+
+        self.notify(f"Welcome, {self.currentUser}!", timeout=3)
 
     def _formatPost(self, post: dict) -> str:
         content = post["content"]
@@ -660,10 +663,10 @@ class PostrApp(App):
     def _currentUserDisplay(self) -> str:
         if not self.currentUser:
             return "Not logged in"
-        
+
         if self._isAdmin():
-            return f"Logged in as [ADMIN] {self.currentUser}"
-        
+            return f"Logged in as {self.currentUser} [ADMIN]"
+
         return f"Logged in as {self.currentUser}"
     
 def main():
