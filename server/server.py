@@ -12,10 +12,13 @@ from server.db import (
     getReplyById,
     deleteReply,
 )
+import os
 
 app = Flask(__name__)
 initDB()
 
+
+ADMIN_KEY = os.getenv("POSTR_ADMIN_KEY", "")
 TIMESTAMP_FMT = "%Y-%m-%d %H:%M:%S"
 
 
@@ -117,7 +120,7 @@ def delete_post(post_id: int):
     if post is None:
         return _err("Post not found", 404)
 
-    if post["author"] != request_user:
+    if post["author"] != request_user and not _is_admin_request():
         return _err("You can only delete your own posts", 403)
 
     deleted = deletePost(post_id)
@@ -206,7 +209,7 @@ def delete_reply(reply_id: int):
     if reply is None:
         return _err("Reply not found", 404)
 
-    if reply["author"] != request_user:
+    if reply["author"] != request_user and not _is_admin_request():
         return _err("You can only delete your own replies", 403)
 
     deleted = deleteReply(reply_id)
@@ -218,6 +221,12 @@ def delete_reply(reply_id: int):
         "id": reply_id,
     }), 200
 
+
+def _is_admin_request() -> bool:
+    if not ADMIN_KEY:
+        return False
+    
+    given_key = str(request.header.get("X-Postr-Admin-Key", "")).strip()
 
 if __name__ == "__main__":
     app.run(debug=True)
