@@ -1,4 +1,4 @@
-# Python cache / compiled files
+# Python cache
 __pycache__/
 *.py[cod]
 *$py.class
@@ -9,39 +9,43 @@ venv/
 env/
 ENV/
 
-# Build / packaging
+# Build / package output
 build/
 dist/
 *.egg-info/
 .eggs/
-pip-wheel-metadata/
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Test / coverage
-.pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
-.mypy_cache/
-.ruff_cache/
-
-# SQLite databases
+# Local databases
 *.db
+postr.db
+*.sqlite
 *.sqlite3
 
-# Environment / secrets
+# Secrets / config
 .env
 .env.*
 *.env
+config.json
+secrets.json
+postr_config.json
+.postr_config.json
 
-# OS / editor junk
-.DS_Store
-Thumbs.db
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+logs/
+
+# Editors / OS
 .vscode/
 .idea/
+.DS_Store
+Thumbs.db
 
-# Textual / runtime leftovers
-*.log
+# Railway local files
+.railway/
