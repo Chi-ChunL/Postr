@@ -31,4 +31,40 @@ Install from PyPI:
 
 ```bash
 pip install postr-tui
+```
+## Server Mode
+When Postr-TUI starts, you can choose how to connect.
+
+### Public Mode
+In thsi mode you connect to a public server where people can post and reply to blogs etc.
+
+### Private Mode
+In this mode you connect to your own local server if you want to run one yourself, it will connect to:
+```bash
+http://127.0.0.1:5000
+```
+as a default.
+
+### Custum Mode
+Allows you to enter any compatible Postr server URL.
+
+This is useful for self-hosting, testing, or connecting to a server hosted elsewhere.
+
+## Running a Private Local Server
+```bash
+git clone https://github.com/Chi-ChunL/Postr.git
+cd Postr
+```
+Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+And then run the server:
+```bash
+python -m server.server
+```
+Then now you can run the client at another terminal or another device by doing:
+```bash
+python -m client.main
+```
 
