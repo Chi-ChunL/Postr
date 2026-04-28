@@ -1,5 +1,8 @@
+import os
 from datetime import datetime
+
 from flask import Flask, jsonify, request
+
 from server.db import (
     initDB,
     getAllPosts,
@@ -12,14 +15,13 @@ from server.db import (
     getReplyById,
     deleteReply,
 )
-import os
+
 
 app = Flask(__name__)
 initDB()
 
-
-ADMIN_KEY = os.getenv("POSTR_ADMIN_KEY", "")
 TIMESTAMP_FMT = "%Y-%m-%d %H:%M:%S"
+ADMIN_KEY = os.getenv("POSTR_ADMIN_KEY", "")
 
 
 # ---------- Helpers ----------
@@ -30,6 +32,14 @@ def _get_request_user(data: dict) -> str:
         or str(request.args.get("request_user", "")).strip()
         or str(request.headers.get("X-Postr-User", "")).strip()
     )
+
+
+def _is_admin_request() -> bool:
+    if not ADMIN_KEY:
+        return False
+
+    given_key = str(request.headers.get("X-Postr-Admin-Key", "")).strip()
+    return given_key == ADMIN_KEY
 
 
 def _validate_post_fields(title: str, author: str, content: str) -> str | None:
@@ -86,6 +96,7 @@ def get_posts():
 @app.post("/posts")
 def create_post():
     data = request.get_json(silent=True)
+
     if not data:
         return _err("Invalid JSON data", 400)
 
@@ -113,12 +124,12 @@ def delete_post(post_id: int):
     data = request.get_json(silent=True) or {}
     request_user = _get_request_user(data)
 
-    if not request_user:
-        return _err("Request user is required", 400)
-
     post = getPostById(post_id)
     if post is None:
         return _err("Post not found", 404)
+
+    if not request_user and not _is_admin_request():
+        return _err("Request user is required", 400)
 
     if post["author"] != request_user and not _is_admin_request():
         return _err("You can only delete your own posts", 403)
@@ -176,6 +187,7 @@ def get_replies(post_id: int):
 @app.post("/posts/<int:post_id>/replies")
 def create_reply(post_id: int):
     data = request.get_json(silent=True)
+
     if not data:
         return _err("No JSON data provided", 400)
 
@@ -202,12 +214,12 @@ def delete_reply(reply_id: int):
     data = request.get_json(silent=True) or {}
     request_user = _get_request_user(data)
 
-    if not request_user:
-        return _err("Request user is required", 400)
-
     reply = getReplyById(reply_id)
     if reply is None:
         return _err("Reply not found", 404)
+
+    if not request_user and not _is_admin_request():
+        return _err("Request user is required", 400)
 
     if reply["author"] != request_user and not _is_admin_request():
         return _err("You can only delete your own replies", 403)
@@ -221,12 +233,6 @@ def delete_reply(reply_id: int):
         "id": reply_id,
     }), 200
 
-
-def _is_admin_request() -> bool:
-    if not ADMIN_KEY:
-        return False
-    
-    given_key = str(request.header.get("X-Postr-Admin-Key", "")).strip()
 
 if __name__ == "__main__":
     app.run(debug=True)
