@@ -1,8 +1,8 @@
 # Postr-TUI
 
-Postr-TUI is a terminal-based blog and forum client built with **Python**, **Textual**, **Flask**, and database support for both **PostgreSQL** and **SQLite**.
+Postr-TUI is a terminal-based blog and forum client built with Python and Textual, and database support for both PostgreSQL and SQLite.
 
-It allows users to connect to a public hosted server, run their own private local server, or connect to a custom server URL. Users can register, log in, create posts, reply to posts, delete their own content, and use a remembered login system.
+It allows users to connect to a public hosted server, run their own private local server, or connect to a custom server URL. Users can register, log in, create posts, reply to posts, delete their own content, and use a remembered login system. 
 
 ---
 
@@ -31,3 +31,4 @@ Install from PyPI:
 
 ```bash
 pip install postr-tui
+
