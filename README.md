@@ -67,4 +67,93 @@ Then now you can run the client at another terminal or another device by doing:
 ```bash
 python -m client.main
 ```
+## Database Support
+Postr supports two main database modes.
 
+###PostgreSQL
+if DATABASE_URL is set, Postr uses PostgreSQL
+
+###SQLite
+If DATABASE_URL is not set, Postr automatically falls back to SQLite.
+
+This is intended for local private hosting.
+
+The local database file is created as:
+```bash
+postr.db
+```
+## Project Structure
+```bash
+Postr/
+├── client/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── features.py
+│   ├── login.py
+│   ├── serverSelect.py
+│   ├── config.py
+│   ├── credentials.py
+│   └── postr.tcss
+├── server/
+│   ├── __init__.py
+│   ├── server.py
+│   ├── db.py
+│   └── auth.py
+├── .github/
+│   └── workflows/
+│       └── publish.yml
+├── pyproject.toml
+├── requirements.txt
+├── README.md
+└── .gitignore
+```
+
+## Main Controls
+| Key        | Action                      |
+| ---------- | --------------------------- |
+| `N`        | Create a new post           |
+| `E`        | Edit selected post          |
+| `D`        | Delete selected post        |
+| `C`        | Show or hide reply composer |
+| `Ctrl + S` | Submit reply                |
+| `X`        | Delete selected reply       |
+| `R`        | Reload posts                |
+| `L`        | Log out / switch account    |
+| `Esc`      | Back / quit                 |
+
+## Login And Registration
+
+Postr includes a login screen with seperate Login and Register tabs.
+
+- Use the left and right arrow keys to switch between tabs.
+- Press Enter in the username or password field to submit.
+- Use the Remember Me option to save login details locally.
+- Passwords are stored using the system keyring, not directly    inside the config file.
+
+## Remember Me System
+
+Postr stores non-sensitive settings in a local config file such as:
+
+- last username
+- last server URL
+- remember-me preference
+
+Passwords are stored seperately and all passwrods are hashed
+
+
+## Current Status
+Postr-TUI currently supports:
+
+- hosted public server mode
+- private local server mode
+- custom server mode
+- posting
+- replies
+- selectable reply deletion
+- author-only edit/delete permissions
+- admin moderation
+- PyPI installation
+- GitHub Actions publishing
+
+## Security Notice
+This is an App in development and there may be vulnerablility that is unknown to me, if you want to add something, open an issue or PR on my ([GitHub](https://github.com/Chi-ChunL/Postr))
