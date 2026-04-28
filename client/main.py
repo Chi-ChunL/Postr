@@ -107,7 +107,7 @@ class PostrApp(App):
         remember = result["remember_me"]
 
         self.currentUser = username
-        self.query_one("#currentUserLabel", Label).update(f"Logged in as {self.currentUser}")
+        self.query_one("#currentUserLabel", Label).update(self._currentUserDisplay())
         self.notify(f"Welcome, {self.currentUser}!", timeout=3)
 
         if remember:
@@ -656,7 +656,15 @@ class PostrApp(App):
             return{}
         return {"X-Postr-Admin-Key": admin_key}
 
-
+    def _currentUserDisplay(self) -> str:
+        if not self.currentUser:
+            return "Not logged in"
+        
+        if self._isAdmin():
+            return f"Logged in as [ADMIN] {self.currentUser}"
+        
+        return f"Logged in as {self.currentUser}"
+    
 def main():
     PostrApp().run()
 
