@@ -21,14 +21,16 @@ postr.db
 *.sqlite
 *.sqlite3
 
-# Secrets / config
+# Secrets / environment variables
 .env
 .env.*
 *.env
-config.json
 secrets.json
-postr_config.json
+config.json
+
+# Local Postr config
 .postr_config.json
+postr_config.json
 
 # Tool caches
 .pytest_cache/
