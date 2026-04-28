@@ -23,7 +23,7 @@ def createUserTable() -> None:
     conn.commit()
     conn.close()
 
-
+#Register user
 def registerUser(username: str, password: str) -> bool:
     username = username.strip()
 
