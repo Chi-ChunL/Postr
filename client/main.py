@@ -21,7 +21,7 @@ TIMEOUT = 5
 
 
 class PostrApp(App):
-    CSS_PATH = Path(__file__).resolve().parent.parent / "postr.tcss"
+    CSS_PATH = Path(__file__).resolve().parent / "postr.tcss"
     BINDINGS = [
         Binding("escape", "escape_quit", "Back / Quit"),
         Binding("r", "reload_posts", "Reload"),
