@@ -22,9 +22,10 @@ initDB()
 
 TIMESTAMP_FMT = "%Y-%m-%d %H:%M:%S"
 ADMIN_KEY = os.getenv("POSTR_ADMIN_KEY", "")
+if not ADMIN_KEY:
+    print("Please do not attempt to find the admin key its being use for security reason and you are a bum if you do so")
 
-
-# ---------- Helpers ----------
+# Helpers 
 
 def _get_request_user(data: dict) -> str:
     return (
@@ -74,7 +75,7 @@ def _err(msg: str, status: int):
     return jsonify({"error": msg}), status
 
 
-# ---------- Routes ----------
+#Routes     
 
 @app.get("/")
 def home():
@@ -235,4 +236,4 @@ def delete_reply(reply_id: int):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=os.getenv("FLASK_DEBUG") == "1")
