@@ -444,7 +444,7 @@ class PostrApp(App):
                     headers={
                         "X-Postr-User": self.currentUser or "",
                         **self._adminHeaders(),
-                        },
+                    },
                     timeout=TIMEOUT,
                 )
             )
@@ -460,12 +460,36 @@ class PostrApp(App):
         if worker.is_cancelled:
             return
 
+        # Reset state
         self.currentPost = None
         self.currentReply = None
-        self.loadPosts()
         self._clearReply()
         self._clearReplyList()
         self.query_one("#viewer", Markdown).update(WELCOME_MD)
+
+        # Fetch fresh post list inline without spawning a new worker
+        try:
+            response = await asyncio.to_thread(
+                lambda: requests.get(f"{self.serverUrl}/posts", timeout=TIMEOUT)
+            )
+            response.raise_for_status()
+            posts = response.json()
+        except requests.RequestException:
+            self.notify("Deleted, but failed to refresh post list.", timeout=3)
+            return
+
+        post_list = self.query_one("#postList", ListView)
+        post_list.clear()
+        post_list.index = None
+
+        if not posts:
+            post_list.append(ListItem(Label("No posts yet. Press N to create one!", classes="postItem")))
+        else:
+            for post in posts:
+                item = ListItem(Label(post["title"], classes="postItem"))
+                item.postData = post
+                post_list.append(item)
+
         self.notify(f"Post '{title}' deleted!", timeout=3)
 
     def action_delete_reply(self) -> None:
