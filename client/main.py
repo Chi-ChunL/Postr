@@ -14,13 +14,14 @@ from client.serverSelect import ServerSelectScreen
 from client.owner import loadAdminKey, hasAdminKey
 from server.auth import createUserTable
 
+from pathlib import Path
 
 WELCOME_MD = "# Welcome to Postr\n\nSelect a post from the left, or press **N** to create one."
 TIMEOUT = 5
 
 
 class PostrApp(App):
-    CSS_PATH = "postr.tcss"
+    CSS_PATH = Path(__file__).resolve().parent.parent / "postr.tcss"
     BINDINGS = [
         Binding("escape", "escape_quit", "Back / Quit"),
         Binding("r", "reload_posts", "Reload"),
