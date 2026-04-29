@@ -1,9 +1,11 @@
 import asyncio
+from pathlib import Path
+
 import requests
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Header, Footer, ListView, ListItem, Label, Markdown, TextArea
+from textual.widgets import Header, Footer, ListView, ListItem, Label, Markdown, TextArea, Input
 from textual.worker import get_current_worker
 
 from client.config import loadConfig, saveConfig
@@ -14,7 +16,6 @@ from client.serverSelect import ServerSelectScreen
 from client.owner import loadAdminKey, hasAdminKey
 from server.auth import createUserTable
 
-from pathlib import Path
 
 WELCOME_MD = "# Welcome to Postr\n\nSelect a post from the left, or press **N** to create one."
 TIMEOUT = 5
@@ -22,9 +23,11 @@ TIMEOUT = 5
 
 class PostrApp(App):
     CSS_PATH = Path(__file__).resolve().parent / "postr.tcss"
+
     BINDINGS = [
         Binding("escape", "escape_quit", "Back / Quit"),
         Binding("r", "reload_posts", "Reload"),
+        Binding("/", "search_posts", "Search"),
         Binding("n", "new_post", "New Post"),
         Binding("e", "edit_post", "Edit Post"),
         Binding("d", "delete_post", "Delete Post"),
@@ -39,11 +42,17 @@ class PostrApp(App):
         super().__init__()
         self._escape_armed = False
         self._logout_armed = False
+
         self.currentPost: dict | None = None
         self.currentReply: dict | None = None
         self.currentUser: str | None = None
         self.serverUrl: str | None = None
+
         self.replyComposerVisible = False
+
+        self.allPosts: list[dict] = []
+        self.searchVisible = False
+        self.searchQuery = ""
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -53,23 +62,23 @@ class PostrApp(App):
                 yield Label("POSTS", classes="sidebarTitle")
                 yield Label("Drafts and saved markdown files", classes="sidebarSubTitle")
                 yield Label("Not logged in", id="currentUserLabel")
+                yield Input(placeholder="Search posts...", id="postSearchInput", classes="hidden")
                 yield ListView(id="postList")
 
             with Vertical(id="contentPane"):
                 yield Label("PREVIEW", classes="viewerTitle")
                 yield Markdown(WELCOME_MD, id="viewer")
 
-                yield Label("REPLIES", id="repliesTitle" ,classes="viewerTitle")
+                yield Label("REPLIES", id="repliesTitle", classes="viewerTitle")
                 yield ListView(id="replyList")
 
                 with Vertical(id="replyPane", classes="hidden"):
-                    yield Label("WRITE REPLY",id="writeReplyTitle", classes="viewerTitle")
+                    yield Label("WRITE REPLY", id="writeReplyTitle", classes="viewerTitle")
                     yield TextArea("", id="replyTextArea")
 
         yield Footer()
 
     def on_mount(self) -> None:
-
         createUserTable()
         config = loadConfig()
 
@@ -103,7 +112,6 @@ class PostrApp(App):
         if not self.serverUrl:
             return
 
-        # Do not refresh while the reply composer is open, because the user may be typing.
         if self.replyComposerVisible:
             return
 
@@ -116,31 +124,12 @@ class PostrApp(App):
         except requests.RequestException:
             return
 
-        post_list = self.query_one("#postList", ListView)
-        current_index = post_list.index
-
         current_post_id = self.currentPost["id"] if self.currentPost else None
         post_ids = [post["id"] for post in posts]
 
-        post_list.clear()
+        self.allPosts = posts
+        self._renderPostList(self.allPosts)
 
-        if not posts:
-            post_list.append(ListItem(Label("No posts yet. Press N to create one!", classes="postItem")))
-            self.currentPost = None
-            self.currentReply = None
-            self._clearReplyList()
-            self.query_one("#viewer", Markdown).update(WELCOME_MD)
-            return
-
-        for post in posts:
-            item = ListItem(Label(post["title"], classes="postItem"))
-            item.postData = post
-            post_list.append(item)
-
-        if current_index is not None and current_index < len(posts):
-            post_list.index = current_index
-
-        # If the currently viewed post was deleted, reset the preview.
         if current_post_id is not None and current_post_id not in post_ids:
             self.currentPost = None
             self.currentReply = None
@@ -148,7 +137,6 @@ class PostrApp(App):
             self.query_one("#viewer", Markdown).update(WELCOME_MD)
             return
 
-        # Refresh replies for the currently selected post.
         if self.currentPost:
             try:
                 response = await asyncio.to_thread(
@@ -162,7 +150,7 @@ class PostrApp(App):
                 self._renderReplyList(replies)
             except requests.RequestException:
                 return
-        
+
     def _handleLoginResult(self, result: dict | None) -> None:
         if not result:
             self.exit()
@@ -193,6 +181,7 @@ class PostrApp(App):
         user_label.update(self._currentUserDisplay())
 
         self.notify(f"Welcome, {self.currentUser}!", timeout=3)
+        self.query_one("#postList", ListView).focus()
 
     def _formatPost(self, post: dict) -> str:
         content = post["content"]
@@ -291,7 +280,6 @@ class PostrApp(App):
 
     async def _fetchAndRenderPosts(self) -> None:
         worker = get_current_worker()
-        post_list = self.query_one("#postList", ListView)
 
         try:
             response = await asyncio.to_thread(
@@ -307,18 +295,8 @@ class PostrApp(App):
         if worker.is_cancelled:
             return
 
-        post_list.clear()
-
-        if not posts:
-            post_list.append(
-                ListItem(Label("No posts yet. Press N to create one!", classes="postItem"))
-            )
-            return
-
-        for post in posts:
-            item = ListItem(Label(post["title"], classes="postItem"))
-            item.postData = post
-            post_list.append(item)
+        self.allPosts = posts
+        self._renderPostList(self.allPosts)
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         item = event.item
@@ -408,7 +386,7 @@ class PostrApp(App):
         if worker.is_cancelled:
             return
 
-        self.loadPosts()
+        await self._fetchAndRenderPosts()
         self._clearReply()
         await self._fetchAndRenderViewer()
         self.notify(f"Post '{title}' created!", timeout=3)
@@ -456,9 +434,9 @@ class PostrApp(App):
                         "request_user": self.currentUser,
                     },
                     headers={
-                            "X-Postr-User": self.currentUser or "",
-                            **self._adminHeaders(),
-                        },
+                        "X-Postr-User": self.currentUser or "",
+                        **self._adminHeaders(),
+                    },
                     timeout=TIMEOUT,
                 )
             )
@@ -476,7 +454,7 @@ class PostrApp(App):
             return
 
         self.currentPost = {**updated, "created_at": created_at}
-        self.loadPosts()
+        await self._fetchAndRenderPosts()
         await self._fetchAndRenderViewer()
         self.notify(f"Post '{title}' updated!", timeout=3)
 
@@ -525,14 +503,12 @@ class PostrApp(App):
         if worker.is_cancelled:
             return
 
-        # Reset state
         self.currentPost = None
         self.currentReply = None
         self._clearReply()
         self._clearReplyList()
         self.query_one("#viewer", Markdown).update(WELCOME_MD)
 
-        # Fetch fresh post list inline without spawning a new worker
         try:
             response = await asyncio.to_thread(
                 lambda: requests.get(f"{self.serverUrl}/posts", timeout=TIMEOUT)
@@ -543,17 +519,11 @@ class PostrApp(App):
             self.notify("Deleted, but failed to refresh post list.", timeout=3)
             return
 
-        post_list = self.query_one("#postList", ListView)
-        post_list.clear()
-        post_list.index = None
+        self.allPosts = posts
+        self._renderPostList(self.allPosts)
 
-        if not posts:
-            post_list.append(ListItem(Label("No posts yet. Press N to create one!", classes="postItem")))
-        else:
-            for post in posts:
-                item = ListItem(Label(post["title"], classes="postItem"))
-                item.postData = post
-                post_list.append(item)
+        post_list = self.query_one("#postList", ListView)
+        post_list.index = None
 
         self.notify(f"Post '{title}' deleted!", timeout=3)
 
@@ -590,9 +560,9 @@ class PostrApp(App):
                     f"{self.serverUrl}/replies/{reply_id}",
                     json={"request_user": self.currentUser},
                     headers={
-                             "X-Postr-User": self.currentUser or "",
-                            **self._adminHeaders(),
-                            },
+                        "X-Postr-User": self.currentUser or "",
+                        **self._adminHeaders(),
+                    },
                     timeout=TIMEOUT,
                 )
             )
@@ -630,12 +600,12 @@ class PostrApp(App):
         if not self.currentUser:
             self.notify("Please log in first.", timeout=2)
             return
-        
+
         if not self.replyComposerVisible:
             self._showReplyComposer()
             self.notify("Write your reply, then press Ctrl + S again to send.", timeout=3)
             return
-        
+
         content = self.query_one("#replyTextArea", TextArea).text
 
         ok, msg = self._validate(content, "reply")
@@ -676,12 +646,14 @@ class PostrApp(App):
         self.currentReply = None
         self._clearReply()
         self._clearReplyList()
+        self._hideReplyComposer()
+        self._hideSearch(clear=True)
         self.query_one("#currentUserLabel", Label).update("Not logged in")
         self.query_one("#viewer", Markdown).update(WELCOME_MD)
 
         post_list = self.query_one("#postList", ListView)
         post_list.index = None
-    
+
     def _showReplyComposer(self) -> None:
         reply_pane = self.query_one("#replyPane", Vertical)
         reply_pane.remove_class("hidden")
@@ -726,14 +698,18 @@ class PostrApp(App):
         self.notify("Posts reloaded.", timeout=2)
 
     def action_escape_quit(self) -> None:
+        if self.searchVisible:
+            self._hideSearch(clear=True)
+            return
+
         if self.replyComposerVisible:
             self._hideReplyComposer()
             return
-        
+
         if self._escape_armed:
             self.exit()
             return
-          
+
         self._escape_armed = True
         self.notify("Press Esc again to quit.", timeout=2)
         self.set_timer(2, lambda: setattr(self, "_escape_armed", False))
@@ -743,11 +719,13 @@ class PostrApp(App):
 
     def _isAdmin(self) -> bool:
         return hasAdminKey()
-    
+
     def _adminHeaders(self) -> dict:
         admin_key = loadAdminKey()
+
         if not admin_key:
-            return{}
+            return {}
+
         return {"X-Postr-Admin-Key": admin_key}
 
     def _currentUserDisplay(self) -> str:
@@ -758,7 +736,89 @@ class PostrApp(App):
             return f"Logged in as {self.currentUser} [ADMIN]"
 
         return f"Logged in as {self.currentUser}"
-    
+
+    def _postMatchesSearch(self, post: dict, query: str) -> bool:
+        query = query.strip().lower()
+
+        if not query:
+            return True
+
+        title = str(post.get("title", "")).lower()
+        author = str(post.get("author", "")).lower()
+        content = str(post.get("content", "")).lower()
+
+        return query in title or query in author or query in content
+
+    def _renderPostList(self, posts: list[dict]) -> None:
+        post_list = self.query_one("#postList", ListView)
+        post_list.clear()
+
+        filtered_posts = [
+            post for post in posts
+            if self._postMatchesSearch(post, self.searchQuery)
+        ]
+
+        if not filtered_posts:
+            if self.searchQuery:
+                post_list.append(
+                    ListItem(Label("No posts match your search.", classes="postItem"))
+                )
+            else:
+                post_list.append(
+                    ListItem(Label("No posts yet. Press N to create one!", classes="postItem"))
+                )
+            return
+
+        for post in filtered_posts:
+            item = ListItem(Label(post["title"], classes="postItem"))
+            item.postData = post
+            post_list.append(item)
+
+    def _showSearch(self) -> None:
+        search_input = self.query_one("#postSearchInput", Input)
+
+        self.searchVisible = True
+        self.searchQuery = ""
+        search_input.value = ""
+
+        search_input.remove_class("hidden")
+        search_input.styles.display = "block"
+        search_input.focus()
+
+    def _hideSearch(self, clear: bool = False) -> None:
+        search_input = self.query_one("#postSearchInput", Input)
+
+        if clear:
+            self.searchQuery = ""
+            search_input.value = ""
+            self._renderPostList(self.allPosts)
+
+        search_input.add_class("hidden")
+        search_input.styles.display = "none"
+        self.searchVisible = False
+
+        self.query_one("#postList", ListView).focus()
+
+    def action_search_posts(self) -> None:
+        self._clearArmedActions()
+        self._showSearch()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id != "postSearchInput":
+            return
+
+        self.searchQuery = event.value
+        self._renderPostList(self.allPosts)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id != "postSearchInput":
+            return
+
+        self.searchQuery = event.value.strip()
+        self._renderPostList(self.allPosts)
+        self.query_one("#postList", ListView).focus()
+
+
 def main():
     PostrApp().run()
 
