@@ -14,6 +14,7 @@ from server.db import (
     getPostById,
     getReplyById,
     deleteReply,
+    updateReply,
 )
 
 
@@ -232,6 +233,41 @@ def delete_reply(reply_id: int):
     return jsonify({
         "message": "Reply deleted successfully",
         "id": reply_id,
+    }), 200
+
+@app.put("/replies/<int:reply_id>")
+def update_reply(reply_id: int):
+    data = request.get_json(silent=True) or {}
+    request_user = _get_request_user(data)
+
+    reply = getReplyById(reply_id)
+    if reply is None:
+        return _err("Reply not found", 404)
+
+    if not request_user and not _is_admin_request():
+        return _err("Request user is required", 400)
+
+    if reply["author"] != request_user and not _is_admin_request():
+        return _err("You can only edit your own replies", 403)
+
+    content = str(data.get("content", "")).strip()
+
+    if not content:
+        return _err("Content cannot be empty", 400)
+
+    if len(content) > 5000:
+        return _err("Reply must be at most 5000 characters", 400)
+
+    updated = updateReply(reply_id, content)
+    if not updated:
+        return _err("Reply not found", 404)
+
+    return jsonify({
+        "id": reply_id,
+        "post_id": reply["post_id"],
+        "author": reply["author"],
+        "content": content,
+        "created_at": reply["created_at"],
     }), 200
 
 

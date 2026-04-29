@@ -311,7 +311,7 @@ class PostrApp(App):
 
         if hasattr(item, "replyData"):
             self.currentReply = item.replyData
-            self.notify("Reply selected. Press X to delete it.", timeout=2)
+            self.notify("Reply selected.Press E to edit or X to delete it.", timeout=2)
             return
 
     async def _fetchAndRenderViewer(self) -> None:
@@ -393,6 +393,10 @@ class PostrApp(App):
 
     def action_edit_post(self) -> None:
         self._clearArmedActions()
+
+        if self.currentReply is not None:
+            self._editSelectedReply()
+            return
 
         if not self._requirePost("edit") or not self._requireServer() or not self._requireAuthor():
             return
@@ -817,7 +821,78 @@ class PostrApp(App):
         self.searchQuery = event.value.strip()
         self._renderPostList(self.allPosts)
         self.query_one("#postList", ListView).focus()
+        
+    def _editSelectedReply(self) -> None:
+        if not self._requireServer():
+            return
 
+        if not self.currentUser:
+            self.notify("Please log in first.", timeout=2)
+            return
+
+        if self.currentReply is None:
+            self.notify("No reply selected to edit.", timeout=2)
+            return
+
+        if self.currentReply.get("author") != self.currentUser and not self._isAdmin():
+            self.notify("You can only edit your own replies.", timeout=3)
+            return
+
+        reply_id = self.currentReply["id"]
+        old_content = self.currentReply["content"]
+        reply_title = f"Reply by {self.currentReply['author']}"
+
+        def on_edit(new_content: str | None) -> None:
+            if new_content is None:
+                self.notify("Reply edit cancelled.", timeout=2)
+                return
+
+            ok, msg = self._validate(new_content, "reply")
+            if not ok:
+                self.notify(msg, timeout=3)
+                return
+
+            self.run_worker(
+                self._updateReply(reply_id, new_content),
+                exclusive=True,
+            )
+
+        self.push_screen(EditPostScreen(reply_title, old_content), on_edit)
+
+    async def _updateReply(self, reply_id: int, content: str) -> None:
+        worker = get_current_worker()
+
+        try:
+            response = await asyncio.to_thread(
+                lambda: requests.put(
+                    f"{self.serverUrl}/replies/{reply_id}",
+                    json={
+                        "content": content,
+                        "request_user": self.currentUser,
+                    },
+                    headers={
+                        "X-Postr-User": self.currentUser or "",
+                        **self._adminHeaders(),
+                    },
+                    timeout=TIMEOUT,
+                )
+            )
+            response.raise_for_status()
+            updated_reply = response.json()
+        except requests.RequestException as e:
+            if not worker.is_cancelled:
+                error_text = ""
+                if getattr(e, "response", None) is not None:
+                    error_text = e.response.text
+                self.notify(f"Failed to edit reply: {error_text or e}", timeout=5)
+            return
+
+        if worker.is_cancelled:
+            return
+
+        self.currentReply = updated_reply
+        await self._fetchAndRenderViewer()
+        self.notify("Reply updated.", timeout=3)
 
 def main():
     PostrApp().run()

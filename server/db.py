@@ -111,6 +111,14 @@ if DATABASE_URL:
             cur.execute("DELETE FROM replies WHERE id = %s", (reply_id,))
             return cur.rowcount > 0
 
+    def updateReply(reply_id: int, content: str) -> bool:
+        with _db() as (_, cur):
+            cur.execute(
+                "UPDATE replies SET content = %s WHERE id = %s",
+                (content, reply_id),
+            )
+            return cur.rowcount > 0
+
 else:
     @contextmanager
     def _db():
@@ -217,4 +225,12 @@ else:
     def deleteReply(reply_id: int) -> bool:
         with _db() as (_, cur):
             cur.execute("DELETE FROM replies WHERE id = ?", (reply_id,))
+            return cur.rowcount > 0
+    
+    def updateReply(reply_id: int, content: str) -> bool:
+        with _db() as (_, cur):
+            cur.execute(
+                "UPDATE replies SET content = ? WHERE id = ?",
+                (content, reply_id),
+            )
             return cur.rowcount > 0
