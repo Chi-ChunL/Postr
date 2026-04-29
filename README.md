@@ -115,7 +115,7 @@ Postr/
 | `E`        | Edit selected post          |
 | `D`        | Delete selected post        |
 | `C`        | Show or hide reply composer |
-| `Ctrl + S` | Submit reply                |
+| `Shift + Enter` | Submit reply                |
 | `X`        | Delete selected reply       |
 | `R`        | Reload posts                |
 | `L`        | Log out / switch account    |

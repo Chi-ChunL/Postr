@@ -33,7 +33,7 @@ class PostrApp(App):
         Binding("d", "delete_post", "Delete Post"),
         Binding("c", "reply_post", "Reply"),
         Binding("x", "delete_reply", "Delete Reply"),
-        Binding("ctrl+s", "submit_reply", "Send Reply"),
+        Binding("shift+enter", "submit_reply", "Send Reply"),
         Binding("l", "logout", "Logout"),
         Binding("ctrl+q", "noop", show=False),
     ]
@@ -603,7 +603,7 @@ class PostrApp(App):
 
         if not self.replyComposerVisible:
             self._showReplyComposer()
-            self.notify("Write your reply, then press Ctrl + S again to send.", timeout=3)
+            self.notify("Write your reply, then press Shift + Enter again to send.", timeout=3)
             return
 
         content = self.query_one("#replyTextArea", TextArea).text
