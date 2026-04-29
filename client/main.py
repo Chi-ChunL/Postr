@@ -86,7 +86,7 @@ class PostrApp(App):
             self.serverUrl = url
             self.notify(f"Connected to {url}", timeout=3)
             self.loadPosts()
-            self.set_interval(5, self._autoRefresh)
+            self.set_interval(12, self._autoRefresh)
 
             self.push_screen(
                 LoginScreen(
