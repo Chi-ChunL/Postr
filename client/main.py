@@ -86,6 +86,7 @@ class PostrApp(App):
             self.serverUrl = url
             self.notify(f"Connected to {url}", timeout=3)
             self.loadPosts()
+            self.set_interval(5, self._autoRefresh)
 
             self.push_screen(
                 LoginScreen(
@@ -98,6 +99,70 @@ class PostrApp(App):
         initial_server = remembered_server if remembered_server else None
         self.push_screen(ServerSelectScreen(initial_server=initial_server), on_server)
 
+    async def _autoRefresh(self) -> None:
+        if not self.serverUrl:
+            return
+
+        # Do not refresh while the reply composer is open, because the user may be typing.
+        if self.replyComposerVisible:
+            return
+
+        try:
+            response = await asyncio.to_thread(
+                lambda: requests.get(f"{self.serverUrl}/posts", timeout=TIMEOUT)
+            )
+            response.raise_for_status()
+            posts = response.json()
+        except requests.RequestException:
+            return
+
+        post_list = self.query_one("#postList", ListView)
+        current_index = post_list.index
+
+        current_post_id = self.currentPost["id"] if self.currentPost else None
+        post_ids = [post["id"] for post in posts]
+
+        post_list.clear()
+
+        if not posts:
+            post_list.append(ListItem(Label("No posts yet. Press N to create one!", classes="postItem")))
+            self.currentPost = None
+            self.currentReply = None
+            self._clearReplyList()
+            self.query_one("#viewer", Markdown).update(WELCOME_MD)
+            return
+
+        for post in posts:
+            item = ListItem(Label(post["title"], classes="postItem"))
+            item.postData = post
+            post_list.append(item)
+
+        if current_index is not None and current_index < len(posts):
+            post_list.index = current_index
+
+        # If the currently viewed post was deleted, reset the preview.
+        if current_post_id is not None and current_post_id not in post_ids:
+            self.currentPost = None
+            self.currentReply = None
+            self._clearReplyList()
+            self.query_one("#viewer", Markdown).update(WELCOME_MD)
+            return
+
+        # Refresh replies for the currently selected post.
+        if self.currentPost:
+            try:
+                response = await asyncio.to_thread(
+                    lambda: requests.get(
+                        f"{self.serverUrl}/posts/{self.currentPost['id']}/replies",
+                        timeout=TIMEOUT,
+                    )
+                )
+                response.raise_for_status()
+                replies = response.json()
+                self._renderReplyList(replies)
+            except requests.RequestException:
+                return
+        
     def _handleLoginResult(self, result: dict | None) -> None:
         if not result:
             self.exit()
@@ -429,7 +494,7 @@ class PostrApp(App):
                 self.notify("Deletion cancelled.", timeout=2)
                 return
 
-            self.run_worker(self._deletePost(post_id, title))
+            self.run_worker(self._deletePost(post_id, title), exclusive=True)
 
         self.push_screen(DeletePostScreen(title), on_confirm)
 
@@ -474,22 +539,21 @@ class PostrApp(App):
             )
             response.raise_for_status()
             posts = response.json()
-
-            post_list = self.query_one("#postList", ListView)
-            post_list.clear()
-            post_list.index = None
-
-            if not posts:
-                post_list.append(ListItem(Label("No posts yet. Press N to create one!", classes="postItem")))
-            else:
-                for post in posts:
-                    item = ListItem(Label(post["title"], classes="postItem"))
-                    item.postData = post
-                    post_list.append(item)
         except requests.RequestException:
             self.notify("Deleted, but failed to refresh post list.", timeout=3)
             return
 
+        post_list = self.query_one("#postList", ListView)
+        post_list.clear()
+        post_list.index = None
+
+        if not posts:
+            post_list.append(ListItem(Label("No posts yet. Press N to create one!", classes="postItem")))
+        else:
+            for post in posts:
+                item = ListItem(Label(post["title"], classes="postItem"))
+                item.postData = post
+                post_list.append(item)
 
         self.notify(f"Post '{title}' deleted!", timeout=3)
 
