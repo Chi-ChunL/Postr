@@ -112,7 +112,7 @@ Postr/
 | Key        | Action                      |
 | ---------- | --------------------------- |
 | `N`        | Create a new post           |
-| `E`        | Edit selected post          |
+| `E`        | Edit selected post, or reply|
 | `D`        | Delete selected post        |
 | `C`        | Show or hide reply composer |
 | `Shift + Enter` | Submit reply                |
